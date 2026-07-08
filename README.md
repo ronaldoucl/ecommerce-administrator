@@ -14,15 +14,23 @@ A product-focused e-commerce management system for administering products, inven
 ## Team
 
 - Ronaldo
+  "Each day is a day of decision, and our decisions determine our destiny"
+  -Russell M. Nelson
 - Lucas
-
+  "Time doesn't heal anything, it just teaches us how to live with pain"
+  -Itachi Uchiha
 ## Repository Structure
 
 ```
 .
 ├── backend/       # Node.js + Express API (independent npm project)
+<<<<<<< HEAD
 ├── frontend/      # React + Vite app (independent npm project)
 ├── README.md
+=======
+├── frontend/      # React + Vite app (independent npm project)     
+├── README.md      # Project conventions and working agreement
+>>>>>>> a494840d870b0aaf4d4c80b0154e561d91f4b111
 └── .gitignore
 ```
 
