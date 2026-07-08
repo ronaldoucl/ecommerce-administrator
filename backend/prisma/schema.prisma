@@ -1,0 +1,99 @@
+// Prisma schema for the Product-Focused E-commerce Management System.
+// Datasource: PostgreSQL (cloud). Client generator: prisma-client-js.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Admin user who can manage the store via the dashboard.
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String // hashed
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
+
+// A sellable product. Pricing baseline lives here; inventory lives on variants.
+model Product {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String
+  benefits    String?
+  basePrice   Decimal
+  isActive    Boolean          @default(true)
+  isFeatured  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  images     ProductImage[]
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+}
+
+// An image belonging to a product.
+model ProductImage {
+  id  Int     @id @default(autoincrement())
+  url String
+  alt String?
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// A concrete variant of a product (e.g. size/color). INVENTORY LIVES HERE (stock).
+model ProductVariant {
+  id    Int      @id @default(autoincrement())
+  label String
+  price Decimal? // optional price override; falls back to Product.basePrice
+  stock Int      @default(0)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  orderItems OrderItem[]
+}
+
+// A customer order (header). Line items are stored in OrderItem.
+model Order {
+  id            Int      @id @default(autoincrement())
+  reference     String   @unique
+  customerName  String
+  customerEmail String
+  shippingInfo  String
+  status        String   @default("pending")
+  totalAmount   Decimal
+  createdAt     DateTime @default(now())
+
+  items OrderItem[]
+}
+
+// A single line item within an order. unitPrice is a snapshot at purchase time.
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  quantity  Int
+  unitPrice Decimal // price snapshot at purchase time
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+// Single-row store configuration (branding, currency, storefront text).
+model StoreSettings {
+  id          Int     @id @default(autoincrement())
+  storeName   String
+  mainText    String?
+  contactInfo String?
+  currency    String  @default("USD")
+  branding    String?
+}
