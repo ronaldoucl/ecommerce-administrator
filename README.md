@@ -24,13 +24,8 @@ A product-focused e-commerce management system for administering products, inven
 ```
 .
 ├── backend/       # Node.js + Express API (independent npm project)
-<<<<<<< HEAD
 ├── frontend/      # React + Vite app (independent npm project)
 ├── README.md
-=======
-├── frontend/      # React + Vite app (independent npm project)     
-├── README.md      # Project conventions and working agreement
->>>>>>> a494840d870b0aaf4d4c80b0154e561d91f4b111
 └── .gitignore
 ```
 
