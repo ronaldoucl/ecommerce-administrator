@@ -1,0 +1,33 @@
+# Render deployment configuration for the backend.
+#
+# NOTE: To use this as a Render *Blueprint*, this file must live at the REPOSITORY
+# ROOT (Render only auto-detects render.yaml at the repo root). Since it currently
+# lives in /backend, either:
+#   (a) copy it to the repo root, or
+#   (b) ignore this file and deploy via the Render dashboard (see DEPLOY.md),
+#       setting "Root Directory" to `backend`.
+#
+# PORT is injected automatically by Render — do NOT set it here.
+# All secrets use `sync: false`, so they are entered in the dashboard, never committed.
+
+services:
+  - type: web
+    name: ecommerce-administrator-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: ohio # match the region of your Render PostgreSQL instance
+    buildCommand: npm install && npm run build # runs: prisma migrate deploy && prisma generate
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false

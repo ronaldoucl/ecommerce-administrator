@@ -8,7 +8,8 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 const app = express();
 
 // Global middleware
-app.use(cors());
+// CORS is restricted to the configured frontend origin (CLIENT_ORIGIN).
+app.use(cors({ origin: config.clientOrigin }));
 app.use(express.json());
 
 // Application routers
