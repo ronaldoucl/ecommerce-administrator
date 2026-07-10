@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
 import Button from '../components/Button/Button';
+// TEMPORARY (S1-SHARED-04): end-to-end backend connectivity check.
+// Remove this import and the <BackendStatus /> block below after Sprint 1.
+import BackendStatus from '../components/BackendStatus/BackendStatus';
 import styles from './Storefront.module.css';
 
 /**
@@ -30,6 +33,11 @@ const placeholderProducts = Array.from({ length: 8 }, (_, i) => i + 1);
 function Storefront() {
   return (
     <div className={styles.page}>
+      {/* TEMPORARY (S1-SHARED-04): backend connectivity indicator — remove after Sprint 1. */}
+      <div className={styles.backendStatus}>
+        <BackendStatus />
+      </div>
+
       {/* ── Featured product ─────────────────────────────────────────────── */}
       <section aria-labelledby="featured-heading" className={styles.featuredSection}>
         <h1 id="featured-heading" className={styles.sectionTitle}>

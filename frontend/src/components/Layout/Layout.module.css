@@ -121,22 +121,10 @@
   font-size: var(--font-size-base);
 }
 
-.footerMeta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
 .footerText {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-}
-
-@media (min-width: 40rem) {
-  .footerMeta {
-    align-items: flex-end;
-  }
 }
 
 /* Tablet and up: spread contact info and copyright across the row */

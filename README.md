@@ -6,12 +6,12 @@ A product-focused e-commerce management system for administering products, inven
 
 | App | Platform | URL |
 | --- | --- | --- |
+| Frontend | Vercel | [ecommerce-administrator.vercel.app](https://ecommerce-administrator.vercel.app) |
 | Backend API | Render | [ecommerce-administrator-backend.onrender.com](https://ecommerce-administrator-backend.onrender.com) (health check: [`/api/health`](https://ecommerce-administrator-backend.onrender.com/api/health)) |
-| Frontend | Vercel | _TODO: add the public `*.vercel.app` URL once the frontend is deployed (S1-RON-04)._ |
 
-> Note: the backend restricts CORS to a single origin via the `CLIENT_ORIGIN`
-> environment variable. For the deployed frontend to reach the API, set
-> `CLIENT_ORIGIN` on Render to the Vercel URL.
+> CORS: the backend allows the origins listed in `CLIENT_ORIGIN` (comma-separated)
+> plus any `*.vercel.app` deployment. In production `CLIENT_ORIGIN` is set on
+> Render to `http://localhost:5173,https://ecommerce-administrator.vercel.app`.
 
 ## Getting Started
 
