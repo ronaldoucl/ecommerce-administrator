@@ -1,0 +1,59 @@
+/*
+ * Base theme: color palette, typography and design tokens.
+ * These CSS custom properties are consumed across the app (components and
+ * pages) and are applied globally through the Layout component.
+ */
+
+:root {
+  /* Color palette */
+  --color-primary: #4f46e5;        /* Indigo 600  - primary actions / brand */
+  --color-primary-dark: #4338ca;   /* Indigo 700  - hover / active states   */
+  --color-primary-light: #eef2ff;  /* Indigo 50   - subtle backgrounds      */
+  --color-accent: #f59e0b;         /* Amber 500   - highlights / badges     */
+
+  --color-bg: #f8fafc;             /* Slate 50    - app background           */
+  --color-surface: #ffffff;        /* White       - cards / panels          */
+  --color-border: #e2e8f0;         /* Slate 200   - borders / dividers       */
+
+  --color-text: #0f172a;           /* Slate 900   - primary text             */
+  --color-text-muted: #64748b;     /* Slate 500   - secondary text           */
+  --color-text-inverse: #ffffff;   /* White       - text on dark surfaces    */
+
+  --color-success: #16a34a;        /* Green 600                              */
+  --color-danger: #dc2626;         /* Red 600                                */
+
+  /* Typography */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-sans);
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  --line-height-base: 1.5;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Layout & effects */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --container-max: 1120px;
+  --header-height: 64px;
+}
