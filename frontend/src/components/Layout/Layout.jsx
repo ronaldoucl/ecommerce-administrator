@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router-dom';
 import Button from '../Button/Button';
+import BackendStatus from '../BackendStatus/BackendStatus';
 import styles from './Layout.module.css';
 
 /**
@@ -69,9 +70,13 @@ function Layout() {
             <span>{CONTACT_ADDRESS}</span>
           </address>
 
-          <p className={styles.footerText}>
-            &copy; {currentYear} {STORE_NAME}. All rights reserved.
-          </p>
+          <div className={styles.footerMeta}>
+            {/* Backend connectivity indicator (deployed FE -> deployed BE). */}
+            <BackendStatus />
+            <p className={styles.footerText}>
+              &copy; {currentYear} {STORE_NAME}. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
