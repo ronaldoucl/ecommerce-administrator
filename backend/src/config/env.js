@@ -9,7 +9,12 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: '1d',
-  // Allowed frontend origin for CORS. Defaults to the local Vite dev server.
-  // TODO: set CLIENT_ORIGIN to the deployed Vercel URL once the frontend is deployed.
-  clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  // Allowed frontend origins for CORS (comma-separated). Defaults to the local
+  // Vite dev server. In production set CLIENT_ORIGIN to the deployed Vercel URL;
+  // you may list several, e.g.
+  //   CLIENT_ORIGIN=http://localhost:5173,https://your-app.vercel.app
+  clientOrigins: (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };

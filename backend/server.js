@@ -7,9 +7,22 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 
 const app = express();
 
+// CORS: allow the origins configured in CLIENT_ORIGIN (comma-separated) plus any
+// Vercel deployment (*.vercel.app) so preview deployments also work. Requests
+// without an Origin header (curl, health checks, server-to-server) are allowed.
+// Disallowed origins simply receive no CORS headers, so the browser blocks them.
+const vercelDeployment = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+
+const corsOptions = {
+  origin(origin, callback) {
+    const isAllowed =
+      !origin || config.clientOrigins.includes(origin) || vercelDeployment.test(origin);
+    callback(null, isAllowed);
+  },
+};
+
 // Global middleware
-// CORS is restricted to the configured frontend origin (CLIENT_ORIGIN).
-app.use(cors({ origin: config.clientOrigin }));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Application routers
