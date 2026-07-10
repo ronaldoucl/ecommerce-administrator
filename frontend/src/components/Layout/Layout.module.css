@@ -8,7 +8,7 @@
   width: 100%;
   max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
 }
 
 /* Header */
@@ -26,15 +26,18 @@
   max-width: var(--container-max);
   height: 100%;
   margin: 0 auto;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .brand {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
   color: var(--color-text);
 }
 
@@ -42,31 +45,46 @@
   color: var(--color-text);
 }
 
-.brandAccent {
-  color: var(--color-primary);
-}
-
-.nav {
-  display: flex;
+/* Logo placeholder: square badge with the store initial */
+.logo {
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
 }
 
-.navLink,
-.navLinkActive {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  padding: var(--space-2) 0;
+.brandName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.navLink:hover {
-  color: var(--color-text);
+/* Cart access button (Button rendered as a link) */
+.cartButton {
+  flex-shrink: 0;
 }
 
-.navLinkActive {
-  color: var(--color-primary);
-  border-bottom: 2px solid var(--color-primary);
+.cartCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
 }
 
 /* Main content */
@@ -83,9 +101,49 @@
   padding: var(--space-6) 0;
 }
 
+.footerInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.contact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-style: normal; /* reset <address> italics */
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.contactStore {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
 .footerText {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  text-align: center;
+}
+
+/* Tablet and up: spread contact info and copyright across the row */
+@media (min-width: 40rem) {
+  .container,
+  .headerInner {
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+  }
+
+  .footerInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .contact {
+    flex-flow: row wrap;
+    gap: var(--space-4);
+    align-items: center;
+  }
 }
