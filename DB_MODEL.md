@@ -6,7 +6,7 @@ Data model for the **Product-Focused E-commerce Management System**.
 - **Client:** `prisma-client-js`.
 - **Source of truth:** [`backend/prisma/schema.prisma`](backend/prisma/schema.prisma).
 
-This document describes the 7 models and the key modeling decisions. Nothing has been migrated yet.
+This document describes the 7 models and the key modeling decisions. The schema is migrated (see `backend/prisma/migrations/`).
 
 ## Models
 
