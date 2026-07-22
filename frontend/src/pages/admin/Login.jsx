@@ -1,39 +1,102 @@
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+
 import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
+import { useAuth } from '../../context/AuthContext';
+import styles from './Login.module.css';
 
 /**
- * Admin login page. Placeholder for S1-RON-01 — the real authentication flow
- * (calling the backend and storing the JWT via AuthContext) arrives in
- * S1-RON-02. For now, submitting simply navigates to the dashboard.
+ * Admin login page. Submits the credentials through AuthContext, which stores
+ * the JWT and hydrates the user; on success the admin area is opened, and a
+ * rejected login (401) is shown inline using the normalized `{ message }`.
  */
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading } = useAuth();
 
-  const handleSubmit = (event) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Where the visitor was heading before the guard sent them here.
+  const redirectTo = location.state?.from?.pathname || '/admin';
+
+  // Restoring a session: wait instead of flashing the form to a signed-in user.
+  if (isLoading) {
+    return <p role="status">Loading…</p>;
+  }
+
+  // Already signed in (e.g. opened /admin/login directly): skip the form.
+  if (isAuthenticated) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    // TODO(S1-RON-02): authenticate against the backend and persist the token.
-    navigate('/admin/dashboard');
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await login(email, password);
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Unable to sign in. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <section style={{ maxWidth: '420px', margin: '0 auto' }}>
+    <section className={styles.page}>
       <h1>Admin login</h1>
-      <p>Sign in to manage products and orders.</p>
+      <p className={styles.subtitle}>Sign in to manage products and orders.</p>
 
       <Card>
-        <form onSubmit={handleSubmit}>
-          <label style={{ display: 'block', marginBottom: '1rem' }}>
+        <form onSubmit={handleSubmit} noValidate>
+          <label className={styles.field} htmlFor="email">
             Email
-            <input type="email" name="email" placeholder="admin@example.com" required
-              style={{ display: 'block', width: '100%', marginTop: '0.25rem', padding: '0.5rem' }} />
+            <input
+              id="email"
+              className={styles.input}
+              type="email"
+              name="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="admin@example.com"
+              autoComplete="username"
+              required
+              disabled={isSubmitting}
+            />
           </label>
-          <label style={{ display: 'block', marginBottom: '1rem' }}>
+
+          <label className={styles.field} htmlFor="password">
             Password
-            <input type="password" name="password" placeholder="••••••••" required
-              style={{ display: 'block', width: '100%', marginTop: '0.25rem', padding: '0.5rem' }} />
+            <input
+              id="password"
+              className={styles.input}
+              type="password"
+              name="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+              disabled={isSubmitting}
+            />
           </label>
-          <Button type="submit">Sign in</Button>
+
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in…' : 'Sign in'}
+          </Button>
         </form>
       </Card>
     </section>
