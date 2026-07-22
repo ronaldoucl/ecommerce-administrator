@@ -7,6 +7,7 @@ import {
   updateProduct,
   deleteProduct,
 } from '../controllers/product.controller.js';
+import { addVariant } from '../controllers/variant.controller.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
 // Product routes: /api/products/*
@@ -26,5 +27,8 @@ router.get('/', requireAuth, getProducts);
 router.post('/', requireAuth, createProduct);
 router.put('/:id', requireAuth, updateProduct);
 router.delete('/:id', requireAuth, deleteProduct);
+
+// Protected: add a variant to a product (inventory lives on the variant).
+router.post('/:id/variants', requireAuth, addVariant);
 
 export default router;

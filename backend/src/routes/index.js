@@ -2,6 +2,8 @@ import { Router } from 'express';
 import healthRoutes from './health.routes.js';
 import authRoutes from './auth.routes.js';
 import productRoutes from './products.routes.js';
+import variantRoutes from './variants.routes.js';
+import settingsRoutes from './settings.routes.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
 // Aggregator router — mounts every feature router under /api.
@@ -10,6 +12,8 @@ const router = Router();
 router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
+router.use('/variants', variantRoutes);
+router.use('/settings', settingsRoutes);
 
 // Temporary route to validate requireAuth. Remove once feature routes exist.
 router.get('/protected-test', requireAuth, (req, res) => {
