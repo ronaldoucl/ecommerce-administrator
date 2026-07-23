@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router-dom';
 import Button from '../Button/Button';
+import { useCart } from '../../context/CartContext';
 import styles from './Layout.module.css';
 
 /**
@@ -21,8 +22,8 @@ const CONTACT_ADDRESS = '123 Market Street, Springfield';
 function Layout() {
   const currentYear = new Date().getFullYear();
 
-  // Sprint 2: replace with the live item count from CartContext.
-  const cartItemCount = 0;
+  // Live item count from the cart, shown in the header indicator.
+  const { itemCount: cartItemCount } = useCart();
 
   return (
     <div className={styles.shell}>

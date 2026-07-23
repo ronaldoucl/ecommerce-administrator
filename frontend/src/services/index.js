@@ -4,6 +4,7 @@
 export { default as api, AUTH_TOKEN_KEY } from './api';
 export { default as authService } from './authService';
 export { default as productService } from './productService';
+export { default as variantService } from './variantService';
 export { default as orderService } from './orderService';
 export { default as settingsService } from './settingsService';
 export { default as analyticsService } from './analyticsService';
