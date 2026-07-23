@@ -1,0 +1,194 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.clear {
+  padding: 0;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--color-danger);
+  text-decoration: underline;
+}
+
+/* ── Items ────────────────────────────────────────────────────────────── */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  grid-template-areas:
+    'image info info'
+    'image qty total'
+    'image remove remove';
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.image {
+  grid-area: image;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-light);
+}
+
+.info {
+  grid-area: info;
+}
+
+.name {
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.variant {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.unitPrice {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.qty {
+  grid-area: qty;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.qtyButton {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.qtyButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.qtyButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qtyValue {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: var(--font-weight-medium);
+}
+
+.lineTotal {
+  grid-area: total;
+  margin: 0;
+  justify-self: end;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.remove {
+  grid-area: remove;
+  justify-self: start;
+  padding: 0;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.remove:hover {
+  text-decoration: underline;
+}
+
+/* ── Summary ──────────────────────────────────────────────────────────── */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.subtotalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  font-size: var(--font-size-lg);
+}
+
+.subtotal {
+  font-size: var(--font-size-xl);
+}
+
+/* ── Tablet and up: single-row items ──────────────────────────────────── */
+@media (min-width: 40rem) {
+  .item {
+    grid-template-columns: 80px 1fr auto auto auto;
+    grid-template-areas: 'image info qty total remove';
+    gap: var(--space-4);
+  }
+
+  .summary {
+    align-items: flex-end;
+  }
+
+  .subtotalRow {
+    width: auto;
+    gap: var(--space-8);
+  }
+}

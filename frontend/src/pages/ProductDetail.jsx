@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 
 import Button from '../components/Button/Button';
 import { productService } from '../services';
+import { useCart } from '../context/CartContext';
 import { formatPrice, placeholderImage } from '../utils/format';
 import styles from './ProductDetail.module.css';
 
@@ -14,6 +15,7 @@ import styles from './ProductDetail.module.css';
  */
 function ProductDetail() {
   const { id } = useParams();
+  const { addItem } = useCart();
 
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +24,7 @@ function ProductDetail() {
 
   const [imageIndex, setImageIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [justAdded, setJustAdded] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -50,9 +53,21 @@ function ProductDetail() {
   }, [load]);
 
   const handleAddToCart = () => {
-    // TODO(S2-RON-04): connect to the cart (e.g. CartContext.addItem) with the
-    // selected product/variant. Intentionally a no-op stub — this ticket does
-    // not build any cart logic.
+    if (!product) return;
+
+    const variant = product.variants?.find((v) => v.id === selectedVariantId) ?? null;
+
+    addItem({
+      productId: product.id,
+      variantId: variant?.id ?? null,
+      label: variant?.label ?? null,
+      name: product.name,
+      image: product.images?.[0]?.url ?? null,
+      // The variant price overrides the base price; a null override falls back.
+      unitPrice: Number(variant?.price ?? product.basePrice),
+    });
+
+    setJustAdded(true);
   };
 
   if (isLoading) {
@@ -161,7 +176,10 @@ function ProductDetail() {
                     className={
                       variant.id === selectedVariantId ? styles.variantActive : styles.variant
                     }
-                    onClick={() => setSelectedVariantId(variant.id)}
+                    onClick={() => {
+                      setSelectedVariantId(variant.id);
+                      setJustAdded(false);
+                    }}
                     aria-pressed={variant.id === selectedVariantId}
                   >
                     {variant.label}
@@ -183,6 +201,11 @@ function ProductDetail() {
             <Button type="button" onClick={handleAddToCart} disabled={isOutOfStock}>
               {isOutOfStock ? 'Out of stock' : 'Add to cart'}
             </Button>
+            {justAdded && !isOutOfStock && (
+              <p className={styles.added} role="status">
+                Added to cart. <Link to="/cart">View cart</Link>
+              </p>
+            )}
           </div>
         </div>
       </div>

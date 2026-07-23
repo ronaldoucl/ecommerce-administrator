@@ -148,8 +148,16 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-2);
+}
+
+.added {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
 }
 
 /* ── Responsive: two columns on tablet and up ─────────────────────────── */
