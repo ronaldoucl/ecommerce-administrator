@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
 import { productService } from '../../services';
+import { formatPrice } from '../../utils/format';
 import styles from './Products.module.css';
 
 /**
@@ -119,7 +120,7 @@ function Products() {
                   return (
                     <tr key={product.id}>
                       <td>{product.name}</td>
-                      <td>{product.basePrice}</td>
+                      <td>{formatPrice(product.basePrice)}</td>
                       <td>
                         <span
                           className={product.isActive ? styles.badgeOn : styles.badgeOff}
