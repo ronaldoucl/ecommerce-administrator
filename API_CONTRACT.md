@@ -282,13 +282,13 @@ Common error responses reused below:
 
 ### DELETE /api/products/:id
 - **Access:** Protected/JWT
-- **Description:** Delete a product.
+- **Description:** Soft-delete a product. The row is **not** removed: the product is deactivated (`isActive` and `isFeatured` set to `false`) to preserve order history that references it. A deactivated product disappears from the public storefront (`GET /api/products/featured` and `GET /api/products/:id` both stop returning it) but still appears in the admin listing (`GET /api/products`) with `isActive: false`.
 
 **Request body:** none.
 
 **Success — `200 OK`**
 ```json
-{ "message": "Product deleted successfully" }
+{ "message": "Product deactivated" }
 ```
 
 **Error — `401 Unauthorized`**
@@ -391,7 +391,7 @@ Inventory lives on the variant (`ProductVariant.stock`).
 
 ### DELETE /api/variants/:id
 - **Access:** Protected/JWT
-- **Description:** Delete a variant.
+- **Description:** Hard-delete a variant. Blocked when the variant is already referenced by an order, so deleting it cannot destroy order history.
 
 **Request body:** none.
 
@@ -410,13 +410,18 @@ Inventory lives on the variant (`ProductVariant.stock`).
 { "message": "Variant not found" }
 ```
 
+**Error — `409 Conflict`** (variant belongs to an existing order)
+```json
+{ "message": "Variant cannot be deleted because it belongs to existing orders" }
+```
+
 ---
 
 ## Checkout
 
 ### POST /api/checkout
-- **Access:** Public
-- **Description:** Place an order. Stock is atomically decremented on the purchased variants within a single database transaction. If any line item exceeds available stock, the whole transaction is rolled back and no order is created.
+- **Access:** Public (no token)
+- **Description:** Place an order (simulated — there is no payment gateway). Validates the cart, creates one `Order` plus its `OrderItem`s with server-resolved price snapshots, and atomically decrements `ProductVariant.stock`, all inside a single database transaction. Prices are always resolved on the server (`variant.price` when set, otherwise `product.basePrice`) and never taken from the request body. If any step fails, the whole transaction is rolled back: no order, no items, no stock change.
 
 **Request body**
 ```json
@@ -425,75 +430,141 @@ Inventory lives on the variant (`ProductVariant.stock`).
   "customerEmail": "jane@example.com",
   "shippingInfo": "123 Main St, Springfield",
   "items": [
-    { "productId": 10, "variantId": 100, "quantity": 2 },
-    { "productId": 11, "variantId": null, "quantity": 1 }
+    { "variantId": 100, "quantity": 2 }
   ]
 }
 ```
+
+Field rules:
+- `customerName` — required, trimmed, 2–100 characters.
+- `customerEmail` — required, valid email format.
+- `shippingInfo` — required, trimmed, 5–500 characters.
+- `items` — required, non-empty array, at most 50 entries; duplicate `variantId` values are rejected (merge quantities client-side).
+- `items[].variantId` — positive integer.
+- `items[].quantity` — integer between 1 and 99.
 
 **Success — `201 Created`**
 ```json
 {
-  "id": 500,
-  "reference": "ORD-20260706-0500",
+  "reference": "ORD-20260723-A7K2Q",
+  "status": "pending",
   "customerName": "Jane Doe",
   "customerEmail": "jane@example.com",
-  "shippingInfo": "123 Main St, Springfield",
-  "status": "pending",
-  "totalAmount": "119.70",
-  "createdAt": "2026-07-06T14:30:00.000Z",
+  "totalAmount": "129.98",
+  "createdAt": "2026-07-23T14:30:00.000Z",
   "items": [
-    { "id": 1, "productId": 10, "variantId": 100, "quantity": 2, "unitPrice": "49.90" },
-    { "id": 2, "productId": 11, "variantId": null, "quantity": 1, "unitPrice": "19.90" }
+    {
+      "productName": "Aurora Hoodie",
+      "variantLabel": "M / Black",
+      "quantity": 2,
+      "unitPrice": "64.99",
+      "lineTotal": "129.98"
+    }
   ]
 }
 ```
 
-**Error — `400 Bad Request`** (out of stock)
+Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserve `Decimal` precision.
+
+**Error — `400 Bad Request`** (validation — e.g. missing/invalid field or duplicate variant)
 ```json
-{ "message": "Insufficient stock for variant 100 (requested 2, available 1)" }
+{ "message": "Validation failed: items must be a non-empty array" }
 ```
 
-**Error — `400 Bad Request`** (validation)
+**Error — `400 Bad Request`** (a purchased product is deactivated)
 ```json
-{ "message": "Validation failed: items must contain at least one entry" }
+{ "message": "Product is not available: Aurora Hoodie" }
+```
+
+**Error — `404 Not Found`** (a requested variant does not exist)
+```json
+{ "message": "Variant not found: 100" }
+```
+
+**Error — `409 Conflict`** (insufficient stock — no order is created)
+```json
+{ "message": "Insufficient stock for M / Black. Available: 1" }
+```
+
+**Error — `500 Internal Server Error`** (could not generate a unique order reference after retries)
+```json
+{ "message": "Could not generate a unique order reference. Please try again." }
 ```
 
 ---
 
 ## Orders
 
+All order endpoints are **admin-only** and require a valid JWT. A missing or invalid token returns `401`.
+
+### Order status & transitions
+
+Valid statuses: `pending`, `confirmed`, `preparing`, `delivered`, `cancelled`.
+
+Allowed transitions (`delivered` and `cancelled` are terminal):
+
+| From | Allowed target statuses |
+| ---- | ----------------------- |
+| `pending` | `confirmed`, `cancelled` |
+| `confirmed` | `preparing`, `cancelled` |
+| `preparing` | `delivered`, `cancelled` |
+| `delivered` | _(none — terminal)_ |
+| `cancelled` | _(none — terminal)_ |
+
+Setting the same status again is rejected as a no-op. **Cancellation restores stock:** when an order transitions into `cancelled` from any non-cancelled status, each line item's `quantity` is added back to its `ProductVariant.stock`. The status change and the stock restoration happen inside a single database transaction, so they cannot drift. Line items whose `variantId` is `null` are skipped. Because `cancelled` is terminal, stock is never restored twice.
+
+---
+
 ### GET /api/orders
 - **Access:** Protected/JWT
-- **Description:** List all orders (admin).
+- **Description:** List orders, newest first, with pagination and optional status filter.
+
+**Query params** (all optional)
+
+| Param | Type | Default | Notes |
+| ----- | ---- | ------- | ----- |
+| `status` | string | — | Filter by status; must be one of the valid statuses, otherwise `400`. |
+| `page` | integer | `1` | 1-based page number; must be a positive integer. |
+| `pageSize` | integer | `20` | Items per page; positive integer, capped at `100`. |
 
 **Request body:** none.
 
 **Success — `200 OK`**
 ```json
-[
-  {
-    "id": 500,
-    "reference": "ORD-20260706-0500",
-    "customerName": "Jane Doe",
-    "customerEmail": "jane@example.com",
-    "status": "pending",
-    "totalAmount": "119.70",
-    "createdAt": "2026-07-06T14:30:00.000Z"
-  }
-]
+{
+  "data": [
+    {
+      "id": 500,
+      "reference": "ORD-20260706-0500",
+      "customerName": "Jane Doe",
+      "customerEmail": "jane@example.com",
+      "status": "pending",
+      "totalAmount": "119.70",
+      "itemCount": 2,
+      "createdAt": "2026-07-06T14:30:00.000Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 42
+}
+```
+
+**Error — `400 Bad Request`** (invalid status filter)
+```json
+{ "message": "Invalid status. Allowed values: pending, confirmed, preparing, delivered, cancelled" }
 ```
 
 **Error — `401 Unauthorized`**
 ```json
-{ "message": "Unauthorized" }
+{ "message": "Missing or malformed Authorization header" }
 ```
 
 ---
 
 ### GET /api/orders/:id
 - **Access:** Protected/JWT
-- **Description:** Return a single order with its line items.
+- **Description:** Return a single order with its line items (price snapshots).
 
 **Request body:** none.
 
@@ -509,11 +580,29 @@ Inventory lives on the variant (`ProductVariant.stock`).
   "totalAmount": "119.70",
   "createdAt": "2026-07-06T14:30:00.000Z",
   "items": [
-    { "id": 1, "productId": 10, "variantId": 100, "quantity": 2, "unitPrice": "49.90" },
-    { "id": 2, "productId": 11, "variantId": null, "quantity": 1, "unitPrice": "19.90" }
+    {
+      "quantity": 2,
+      "unitPrice": "49.90",
+      "lineTotal": "99.80",
+      "productId": 10,
+      "productName": "Aurora Hoodie",
+      "variantId": 100,
+      "variantLabel": "M / Black"
+    },
+    {
+      "quantity": 1,
+      "unitPrice": "19.90",
+      "lineTotal": "19.90",
+      "productId": 11,
+      "productName": "Nebula Cap",
+      "variantId": null,
+      "variantLabel": null
+    }
   ]
 }
 ```
+
+Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserve `Decimal` precision.
 
 **Error — `404 Not Found`**
 ```json
@@ -524,25 +613,16 @@ Inventory lives on the variant (`ProductVariant.stock`).
 
 ### PATCH /api/orders/:id/status
 - **Access:** Protected/JWT
-- **Description:** Update the status of an order. Allowed values: `pending`, `confirmed`, `preparing`, `delivered`, `cancelled`.
+- **Description:** Update the status of an order following the transition map above. Cancelling restores stock atomically (see [Order status & transitions](#order-status--transitions)). Returns the updated order in the same shape as `GET /api/orders/:id`.
 
 **Request body**
 ```json
 { "status": "confirmed" }
 ```
 
-**Success — `200 OK`**
-```json
-{
-  "id": 500,
-  "reference": "ORD-20260706-0500",
-  "status": "confirmed",
-  "totalAmount": "119.70",
-  "createdAt": "2026-07-06T14:30:00.000Z"
-}
-```
+**Success — `200 OK`** — the full order (same shape as `GET /api/orders/:id`) with the new status.
 
-**Error — `400 Bad Request`** (invalid status value)
+**Error — `400 Bad Request`** (unknown/missing status)
 ```json
 { "message": "Invalid status. Allowed values: pending, confirmed, preparing, delivered, cancelled" }
 ```
@@ -550,6 +630,16 @@ Inventory lives on the variant (`ProductVariant.stock`).
 **Error — `404 Not Found`**
 ```json
 { "message": "Order not found" }
+```
+
+**Error — `409 Conflict`** (illegal transition)
+```json
+{ "message": "Cannot change status from delivered to confirmed" }
+```
+
+**Error — `409 Conflict`** (no-op — same status)
+```json
+{ "message": "Order is already pending" }
 ```
 
 ---

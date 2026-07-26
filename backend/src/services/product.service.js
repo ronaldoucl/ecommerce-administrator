@@ -9,6 +9,15 @@ import { notFound } from '../utils/httpError.js';
 // Products are always returned with their images and variants attached.
 const productInclude = { images: true, variants: true };
 
+// Single source of truth for the "public products must be active" rule.
+// Soft-deleted products (isActive=false) are hidden from the storefront.
+// Used both as a Prisma `where` fragment (list queries) and as a predicate
+// (single-record reads), so the rule lives in exactly one place.
+const publicVisibilityWhere = { isActive: true };
+function isPubliclyVisible(product) {
+  return product.isActive === true;
+}
+
 // Business rule: only one product is featured at a time.
 // Clears isFeatured on every OTHER product. Must run inside the caller's
 // transaction (`tx`) so featuring and unfeaturing commit together.
@@ -33,20 +42,21 @@ export async function getAllProducts() {
 // product must never surface on the storefront even if still flagged as featured.
 export async function getFeaturedProducts() {
   return prisma.product.findMany({
-    where: { isFeatured: true, isActive: true },
+    where: { isFeatured: true, ...publicVisibilityWhere },
     include: productInclude,
     orderBy: { createdAt: 'desc' },
   });
 }
 
 // Public storefront: return a single product with its images and variants.
-// Throws 404 if it does not exist.
+// Throws 404 if it does not exist or has been soft-deleted (isActive=false),
+// so a deactivated product is indistinguishable from a missing one publicly.
 export async function getProductById(id) {
   const product = await prisma.product.findUnique({
     where: { id },
     include: productInclude,
   });
-  if (!product) throw notFound('Product not found');
+  if (!product || !isPubliclyVisible(product)) throw notFound('Product not found');
   return product;
 }
 
@@ -93,19 +103,16 @@ export async function updateProduct(id, data) {
   });
 }
 
-// Delete a product along with its images and variants. Throws 404 if it does not exist.
-//
-// TODO Sprint 3: switch to soft-delete (isActive=false) once OrderItem references
-// products, to preserve order history.
+// Soft-delete a product: deactivate it instead of removing the row, so order
+// history that references it (OrderItem) is preserved. Clearing isFeatured keeps
+// a deactivated product out of the storefront's featured list. Throws 404 if it
+// does not exist.
 export async function deleteProduct(id) {
-  await prisma.$transaction(async (tx) => {
-    const existing = await tx.product.findUnique({ where: { id } });
-    if (!existing) throw notFound('Product not found');
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing) throw notFound('Product not found');
 
-    // The schema already cascades on delete; clearing the children explicitly keeps
-    // the intent visible and independent of the FK configuration.
-    await tx.productImage.deleteMany({ where: { productId: id } });
-    await tx.productVariant.deleteMany({ where: { productId: id } });
-    await tx.product.delete({ where: { id } });
+  await prisma.product.update({
+    where: { id },
+    data: { isActive: false, isFeatured: false },
   });
 }

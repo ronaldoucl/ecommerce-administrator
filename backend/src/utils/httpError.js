@@ -21,3 +21,9 @@ export function badRequest(reason) {
 export function notFound(message) {
   return createHttpError(404, message);
 }
+
+// 409 — the request conflicts with the current state of the resource
+// (e.g. deleting a variant that already belongs to an order).
+export function conflict(message) {
+  return createHttpError(409, message);
+}

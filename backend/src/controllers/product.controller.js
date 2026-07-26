@@ -71,11 +71,13 @@ export async function updateProduct(req, res, next) {
 }
 
 // DELETE /api/products/:id (protected)
+// Soft delete: deactivates the product (isActive=false) instead of removing it,
+// preserving order history that references it.
 export async function deleteProduct(req, res, next) {
   try {
     const id = validateProductId(req.params.id);
     await productService.deleteProduct(id);
-    return res.status(200).json({ message: 'Product deleted successfully' });
+    return res.status(200).json({ message: 'Product deactivated' });
   } catch (err) {
     return next(err);
   }
