@@ -3,6 +3,8 @@ import healthRoutes from './health.routes.js';
 import authRoutes from './auth.routes.js';
 import productRoutes from './products.routes.js';
 import variantRoutes from './variants.routes.js';
+import checkoutRoutes from './checkout.routes.js';
+import orderRoutes from './order.routes.js';
 import settingsRoutes from './settings.routes.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
@@ -13,6 +15,8 @@ router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/variants', variantRoutes);
+router.use('/checkout', checkoutRoutes);
+router.use('/orders', orderRoutes);
 router.use('/settings', settingsRoutes);
 
 // Temporary route to validate requireAuth. Remove once feature routes exist.

@@ -1,5 +1,5 @@
 import prisma from '../config/prisma.js';
-import { notFound } from '../utils/httpError.js';
+import { notFound, conflict } from '../utils/httpError.js';
 
 // Variant service — the ONLY place variants touch Prisma.
 //
@@ -24,10 +24,17 @@ export async function updateVariant(id, data) {
   return prisma.productVariant.update({ where: { id }, data });
 }
 
-// Delete a variant. Throws 404 if it does not exist.
+// Hard-delete a variant. Throws 404 if it does not exist. Blocked with 409 when the
+// variant is already referenced by an order, so deleting it cannot destroy order
+// history (unlike products, variants are still removed when they are unreferenced).
 export async function deleteVariant(id) {
   const existing = await prisma.productVariant.findUnique({ where: { id } });
   if (!existing) throw notFound('Variant not found');
+
+  const orderItemCount = await prisma.orderItem.count({ where: { variantId: id } });
+  if (orderItemCount > 0) {
+    throw conflict('Variant cannot be deleted because it belongs to existing orders');
+  }
 
   await prisma.productVariant.delete({ where: { id } });
 }
