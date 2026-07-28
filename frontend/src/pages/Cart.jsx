@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 import Button from '../components/Button/Button';
 import { useCart } from '../context/CartContext';
-import { formatPrice, placeholderImage } from '../utils/format';
+import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './Cart.module.css';
 
 /**
@@ -37,7 +37,7 @@ function Cart() {
 
       <ul className={styles.list}>
         {items.map((item) => {
-          const lineTotal = Number(item.unitPrice) * item.quantity;
+          const lineTotal = parsePrice(item.unitPrice) * item.quantity;
 
           return (
             <li key={`${item.productId}:${item.variantId}`} className={styles.item}>

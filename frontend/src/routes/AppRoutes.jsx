@@ -36,6 +36,7 @@ function AppRoutes() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/confirmation" element={<Confirmation />} />
+        <Route path="/confirmation/:reference" element={<Confirmation />} />
       </Route>
 
       {/* Admin: public login */}
