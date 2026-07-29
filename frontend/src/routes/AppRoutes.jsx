@@ -17,6 +17,7 @@ import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import ProductForm from '../pages/admin/ProductForm';
 import Orders from '../pages/admin/Orders';
+import OrderDetail from '../pages/admin/OrderDetail';
 import Settings from '../pages/admin/Settings';
 
 /**
@@ -57,6 +58,7 @@ function AppRoutes() {
         <Route path="products/new" element={<ProductForm />} />
         <Route path="products/:id/edit" element={<ProductForm />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

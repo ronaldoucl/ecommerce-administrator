@@ -34,6 +34,22 @@ export function formatPrice(value) {
 }
 
 /**
+ * Format an ISO date string for display as `Jul 28, 2026`.
+ *
+ * @param {string|number|Date} value - a date value (ISO string, timestamp, Date)
+ * @returns {string} the formatted date, or an em dash when it is not a valid date
+ */
+export function formatDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
+/**
  * Build an inline SVG data URI to stand in for a missing product image, so the
  * layout stays stable without any network or asset dependency.
  *

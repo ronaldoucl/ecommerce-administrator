@@ -48,6 +48,21 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // A 401 means the session is gone or invalid: drop the stored token and, when
+    // the user is inside the admin area, send them to the login page. This lives
+    // here so every service inherits the same behaviour and no page duplicates it.
+    if (error.response?.status === 401) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
+      if (typeof window !== 'undefined') {
+        const { pathname } = window.location;
+        if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+          window.location.assign('/admin/login');
+        }
+      }
+    }
+
     const backendMessage = error.response?.data?.message;
     const message =
       backendMessage || error.message || 'Unexpected error. Please try again.';
