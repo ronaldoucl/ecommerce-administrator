@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { config } from '../config/env.js';
 import { notFound } from '../utils/httpError.js';
 
 // Product service — the ONLY place products touch Prisma.
@@ -8,6 +9,30 @@ import { notFound } from '../utils/httpError.js';
 
 // Products are always returned with their images and variants attached.
 const productInclude = { images: true, variants: true };
+
+// Attach computed stock flags to a product and its variants. These are derived
+// in the service from the live `stock` value (never stored) so every product
+// read exposes the same low-stock / out-of-stock signal:
+//   - variant.isLowStock   — in stock but at or below the configured threshold
+//   - variant.isOutOfStock — stock is exactly 0
+//   - product.hasLowStock  — any variant is low stock
+//   - product.isOutOfStock — the product has variants and ALL of them are at 0
+// Spreading preserves the Decimal `price`/`basePrice` instances, so monetary
+// values still serialize as strings.
+function withStockFlags(product) {
+  const variants = (product.variants ?? []).map((variant) => ({
+    ...variant,
+    isLowStock: variant.stock > 0 && variant.stock <= config.lowStockThreshold,
+    isOutOfStock: variant.stock === 0,
+  }));
+
+  return {
+    ...product,
+    variants,
+    hasLowStock: variants.some((variant) => variant.isLowStock),
+    isOutOfStock: variants.length > 0 && variants.every((variant) => variant.isOutOfStock),
+  };
+}
 
 // Single source of truth for the "public products must be active" rule.
 // Soft-deleted products (isActive=false) are hidden from the storefront.
@@ -30,10 +55,11 @@ async function unfeatureOthers(tx, productId) {
 
 // Return all products (admin listing — includes inactive ones).
 export async function getAllProducts() {
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     include: productInclude,
     orderBy: { createdAt: 'desc' },
   });
+  return products.map(withStockFlags);
 }
 
 // Public storefront: return featured products with their images and variants.
@@ -41,11 +67,12 @@ export async function getAllProducts() {
 // but the contract shape is a list. Inactive products are excluded — a deactivated
 // product must never surface on the storefront even if still flagged as featured.
 export async function getFeaturedProducts() {
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     where: { isFeatured: true, ...publicVisibilityWhere },
     include: productInclude,
     orderBy: { createdAt: 'desc' },
   });
+  return products.map(withStockFlags);
 }
 
 // Public storefront: return a single product with its images and variants.
@@ -57,7 +84,7 @@ export async function getProductById(id) {
     include: productInclude,
   });
   if (!product || !isPubliclyVisible(product)) throw notFound('Product not found');
-  return product;
+  return withStockFlags(product);
 }
 
 // Create a product, optionally with inline images. If it is created as featured,
@@ -65,8 +92,8 @@ export async function getProductById(id) {
 export async function createProduct(data) {
   const { images, ...productData } = data;
 
-  return prisma.$transaction(async (tx) => {
-    const product = await tx.product.create({
+  const product = await prisma.$transaction(async (tx) => {
+    const created = await tx.product.create({
       data: {
         ...productData,
         ...(images?.length ? { images: { create: images } } : {}),
@@ -74,33 +101,37 @@ export async function createProduct(data) {
       include: productInclude,
     });
 
-    if (product.isFeatured) {
-      await unfeatureOthers(tx, product.id);
+    if (created.isFeatured) {
+      await unfeatureOthers(tx, created.id);
     }
 
-    return product;
+    return created;
   });
+
+  return withStockFlags(product);
 }
 
 // Update the provided fields of a product. Throws 404 if it does not exist.
 // Featuring it unfeatures every other product in the same transaction.
 export async function updateProduct(id, data) {
-  return prisma.$transaction(async (tx) => {
+  const product = await prisma.$transaction(async (tx) => {
     const existing = await tx.product.findUnique({ where: { id } });
     if (!existing) throw notFound('Product not found');
 
-    const product = await tx.product.update({
+    const updated = await tx.product.update({
       where: { id },
       data,
       include: productInclude,
     });
 
-    if (product.isFeatured) {
-      await unfeatureOthers(tx, product.id);
+    if (updated.isFeatured) {
+      await unfeatureOthers(tx, updated.id);
     }
 
-    return product;
+    return updated;
   });
+
+  return withStockFlags(product);
 }
 
 // Soft-delete a product: deactivate it instead of removing the row, so order

@@ -1,0 +1,47 @@
+.badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Five visually distinct statuses. Each pairs a color with its text label,
+   so the badge is never distinguished by color alone. */
+.pending {
+  color: #92400e; /* amber 800 */
+  background-color: #fef3c7; /* amber 100 */
+  border-color: #fde68a; /* amber 200 */
+}
+
+.confirmed {
+  color: #1e40af; /* blue 800 */
+  background-color: #dbeafe; /* blue 100 */
+  border-color: #bfdbfe; /* blue 200 */
+}
+
+.preparing {
+  color: #6b21a8; /* purple 800 */
+  background-color: #f3e8ff; /* purple 100 */
+  border-color: #e9d5ff; /* purple 200 */
+}
+
+.delivered {
+  color: #166534; /* green 800 */
+  background-color: #dcfce7; /* green 100 */
+  border-color: #bbf7d0; /* green 200 */
+}
+
+.cancelled {
+  color: #991b1b; /* red 800 */
+  background-color: #fee2e2; /* red 100 */
+  border-color: #fecaca; /* red 200 */
+}
+
+.unknown {
+  color: var(--color-text-muted);
+  background-color: var(--color-bg);
+  border-color: var(--color-border);
+}

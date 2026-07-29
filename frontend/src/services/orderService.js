@@ -1,50 +1,56 @@
-// Order service — stubs for a later ticket.
-//
-// Wraps the checkout + `/orders` endpoints from the API contract. Signatures
-// are sketched here so callers/UI can be planned against them; each will be
-// implemented on top of the shared `api` instance.
-//
-// import api from './api';
+import api from './api';
 
+/**
+ * Order service. Wraps the admin `/orders` endpoints from the API contract.
+ *
+ * Every endpoint is protected: the shared `api` instance attaches the JWT from
+ * localStorage["auth_token"] in its request interceptor and centralizes 401
+ * handling in its response interceptor, so these methods never touch the token
+ * or the Authorization header themselves.
+ */
 const orderService = {
   /**
-   * Place an order.
-   * POST /api/checkout (public)
-   * @param {object} _payload - { customerName, customerEmail, shippingInfo, items }
-   */
-  async checkout(_payload) {
-    // TODO: return (await api.post('/checkout', _payload)).data;
-    throw new Error('orderService.checkout is not implemented yet');
-  },
-
-  /**
-   * List all orders (admin).
+   * List orders, newest first, with an optional status filter and pagination.
    * GET /api/orders (protected)
+   *
+   * @param {{ status?: string, page?: number, pageSize?: number }} [params]
+   * @returns {Promise<{ data: Array, page: number, pageSize: number, total: number }>}
    */
-  async getAll() {
-    // TODO: return (await api.get('/orders')).data;
-    throw new Error('orderService.getAll is not implemented yet');
+  async listOrders({ status, page, pageSize } = {}) {
+    // Only send params that are set, so the backend applies its own defaults.
+    const query = {};
+    if (status) query.status = status;
+    if (page) query.page = page;
+    if (pageSize) query.pageSize = pageSize;
+
+    const { data } = await api.get('/orders', { params: query });
+    return data;
   },
 
   /**
-   * Return a single order with its line items.
+   * Return a single order with its item snapshots.
    * GET /api/orders/:id (protected)
-   * @param {number|string} _id
+   *
+   * @param {number|string} id - order id
+   * @returns {Promise<object>} the full order
    */
-  async getById(_id) {
-    // TODO: return (await api.get(`/orders/${_id}`)).data;
-    throw new Error('orderService.getById is not implemented yet');
+  async getOrder(id) {
+    const { data } = await api.get(`/orders/${id}`);
+    return data;
   },
 
   /**
-   * Update the status of an order.
+   * Update an order's status. The backend enforces the transition map and, when
+   * moving to "cancelled", restores each item's stock.
    * PATCH /api/orders/:id/status (protected)
-   * @param {number|string} _id
-   * @param {string} _status - pending | confirmed | preparing | delivered | cancelled
+   *
+   * @param {number|string} id - order id
+   * @param {string} status - the target status
+   * @returns {Promise<object>} the updated order (full detail)
    */
-  async updateStatus(_id, _status) {
-    // TODO: return (await api.patch(`/orders/${_id}/status`, { status: _status })).data;
-    throw new Error('orderService.updateStatus is not implemented yet');
+  async updateOrderStatus(id, status) {
+    const { data } = await api.patch(`/orders/${id}/status`, { status });
+    return data;
   },
 };
 

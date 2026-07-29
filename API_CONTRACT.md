@@ -84,6 +84,18 @@ Common error responses reused below:
 
 ## Products
 
+**Computed stock flags.** Product reads include stock signals derived on the
+server from the live `ProductVariant.stock` (never stored, so always current).
+The low-stock threshold is configuration (`LOW_STOCK_THRESHOLD`, default `5`),
+not a database column.
+
+- Per variant:
+  - `isLowStock` — `true` when `stock > 0` **and** `stock <= LOW_STOCK_THRESHOLD`.
+  - `isOutOfStock` — `true` when `stock === 0`.
+- Per product:
+  - `hasLowStock` — `true` when any variant is low stock.
+  - `isOutOfStock` — `true` when the product has variants and **all** of them are at `0`.
+
 ### GET /api/products/featured
 - **Access:** Public
 - **Description:** Return products flagged as featured for the storefront.
@@ -101,11 +113,13 @@ Common error responses reused below:
     "basePrice": "49.90",
     "isActive": true,
     "isFeatured": true,
+    "hasLowStock": false,
+    "isOutOfStock": false,
     "images": [
       { "id": 1, "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
     ],
     "variants": [
-      { "id": 100, "label": "M / Black", "price": null, "stock": 12 }
+      { "id": 100, "label": "M / Black", "price": null, "stock": 12, "isLowStock": false, "isOutOfStock": false }
     ]
   }
 ]
@@ -134,13 +148,15 @@ Common error responses reused below:
   "basePrice": "49.90",
   "isActive": true,
   "isFeatured": true,
+  "hasLowStock": true,
+  "isOutOfStock": false,
   "createdAt": "2026-07-06T14:30:00.000Z",
   "images": [
     { "id": 1, "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
   ],
   "variants": [
-    { "id": 100, "label": "M / Black", "price": null, "stock": 12 },
-    { "id": 101, "label": "L / Black", "price": "54.90", "stock": 0 }
+    { "id": 100, "label": "M / Black", "price": null, "stock": 12, "isLowStock": false, "isOutOfStock": false },
+    { "id": 101, "label": "L / Black", "price": "54.90", "stock": 0, "isLowStock": false, "isOutOfStock": true }
   ]
 }
 ```
@@ -158,24 +174,28 @@ Common error responses reused below:
 
 **Request body:** none.
 
-**Success — `200 OK`**
+**Success — `200 OK`** — each product includes its images and variants (with live
+`stock`) plus the computed stock flags described above.
 ```json
 [
   {
     "id": 10,
     "name": "Aurora Hoodie",
+    "description": "Soft fleece hoodie.",
+    "benefits": "Warm, breathable, unisex fit.",
     "basePrice": "49.90",
     "isActive": true,
     "isFeatured": true,
-    "createdAt": "2026-07-06T14:30:00.000Z"
-  },
-  {
-    "id": 11,
-    "name": "Nebula Cap",
-    "basePrice": "19.90",
-    "isActive": false,
-    "isFeatured": false,
-    "createdAt": "2026-07-05T10:00:00.000Z"
+    "hasLowStock": true,
+    "isOutOfStock": false,
+    "createdAt": "2026-07-06T14:30:00.000Z",
+    "images": [
+      { "id": 1, "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
+    ],
+    "variants": [
+      { "id": 100, "label": "M / Black", "price": null, "stock": 12, "isLowStock": false, "isOutOfStock": false },
+      { "id": 101, "label": "L / Black", "price": "54.90", "stock": 3, "isLowStock": true, "isOutOfStock": false }
+    ]
   }
 ]
 ```
@@ -413,6 +433,50 @@ Inventory lives on the variant (`ProductVariant.stock`).
 **Error — `409 Conflict`** (variant belongs to an existing order)
 ```json
 { "message": "Variant cannot be deleted because it belongs to existing orders" }
+```
+
+---
+
+## Inventory
+
+### GET /api/inventory/low-stock
+- **Access:** Protected/JWT
+- **Description:** Return every variant whose stock is at or below the configured
+  low-stock threshold (`LOW_STOCK_THRESHOLD`, default `5`), across **active**
+  products only, ordered by `stock` ascending (most urgent first). Out-of-stock
+  variants (stock `0`) are included and flagged with `isOutOfStock`. The query
+  is implemented once in the inventory service so the analytics summary can reuse it.
+
+**Request body:** none.
+
+**Success — `200 OK`**
+```json
+{
+  "threshold": 5,
+  "data": [
+    {
+      "variantId": 101,
+      "variantLabel": "L / Black",
+      "stock": 0,
+      "productId": 10,
+      "productName": "Aurora Hoodie",
+      "isOutOfStock": true
+    },
+    {
+      "variantId": 102,
+      "variantLabel": "XL / Black",
+      "stock": 3,
+      "productId": 10,
+      "productName": "Aurora Hoodie",
+      "isOutOfStock": false
+    }
+  ]
+}
+```
+
+**Error — `401 Unauthorized`**
+```json
+{ "message": "Unauthorized" }
 ```
 
 ---

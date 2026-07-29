@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import Button from '../components/Button/Button';
 import { productService } from '../services';
 import { useCart } from '../context/CartContext';
-import { formatPrice, placeholderImage } from '../utils/format';
+import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './ProductDetail.module.css';
 
 /**
@@ -64,7 +64,8 @@ function ProductDetail() {
       name: product.name,
       image: product.images?.[0]?.url ?? null,
       // The variant price overrides the base price; a null override falls back.
-      unitPrice: Number(variant?.price ?? product.basePrice),
+      // Parse the raw Decimal string through the shared helper before storing.
+      unitPrice: parsePrice(variant?.price ?? product.basePrice),
     });
 
     setJustAdded(true);

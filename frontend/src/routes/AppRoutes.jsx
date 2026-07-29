@@ -17,6 +17,7 @@ import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import ProductForm from '../pages/admin/ProductForm';
 import Orders from '../pages/admin/Orders';
+import OrderDetail from '../pages/admin/OrderDetail';
 import Settings from '../pages/admin/Settings';
 
 /**
@@ -36,6 +37,7 @@ function AppRoutes() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/confirmation" element={<Confirmation />} />
+        <Route path="/confirmation/:reference" element={<Confirmation />} />
       </Route>
 
       {/* Admin: public login */}
@@ -56,6 +58,7 @@ function AppRoutes() {
         <Route path="products/new" element={<ProductForm />} />
         <Route path="products/:id/edit" element={<ProductForm />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

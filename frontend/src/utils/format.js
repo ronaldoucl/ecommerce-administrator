@@ -7,14 +7,46 @@
  */
 
 /**
+ * Parse a monetary value into a number before any arithmetic or formatting.
+ *
+ * Prisma serializes Decimal columns as STRINGS (e.g. "49.90"), so prices arrive
+ * as text. Always run them through this helper first: it returns a finite number
+ * or `NaN`, so a bad value surfaces as an em dash via {@link formatPrice} instead
+ * of leaking `NaN` into totals rendered on screen.
+ *
+ * @param {string|number} value - a numeric price (string or number)
+ * @returns {number} the parsed amount, or `NaN` when it is not a finite number
+ */
+export function parsePrice(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : NaN;
+}
+
+/**
  * Format a monetary value for display as `$49.90`.
  *
  * @param {string|number} value - a numeric price (string or number)
  * @returns {string} the formatted price, or an em dash when not a finite number
  */
 export function formatPrice(value) {
-  const amount = Number(value);
+  const amount = parsePrice(value);
   return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '—';
+}
+
+/**
+ * Format an ISO date string for display as `Jul 28, 2026`.
+ *
+ * @param {string|number|Date} value - a date value (ISO string, timestamp, Date)
+ * @returns {string} the formatted date, or an em dash when it is not a valid date
+ */
+export function formatDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
 }
 
 /**

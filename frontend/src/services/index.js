@@ -6,6 +6,7 @@ export { default as authService } from './authService';
 export { default as productService } from './productService';
 export { default as variantService } from './variantService';
 export { default as orderService } from './orderService';
+export { default as checkoutService } from './checkoutService';
 export { default as settingsService } from './settingsService';
 export { default as analyticsService } from './analyticsService';
 export { default as healthService } from './healthService';

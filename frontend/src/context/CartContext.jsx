@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { parsePrice } from '../utils/format';
+
 /**
  * CartContext — the client-side shopping cart for the storefront.
  *
@@ -101,7 +103,13 @@ function CartProvider({ children }) {
 
   // Running totals derived from the items.
   const subtotal = useMemo(
-    () => items.reduce((sum, line) => sum + Number(line.unitPrice) * line.quantity, 0),
+    () =>
+      items.reduce((sum, line) => {
+        const unitPrice = parsePrice(line.unitPrice);
+        // Skip unparseable prices so a single bad value can't turn the whole
+        // subtotal into NaN on screen.
+        return Number.isFinite(unitPrice) ? sum + unitPrice * line.quantity : sum;
+      }, 0),
     [items],
   );
   const itemCount = useMemo(
