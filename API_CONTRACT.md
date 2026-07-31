@@ -732,7 +732,7 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
 
 ### PUT /api/settings
 - **Access:** Protected/JWT
-- **Description:** Update the store configuration row.
+- **Description:** Update the store configuration. `StoreSettings` is a single-row table: this endpoint always updates that one row (and creates it if the database has never been seeded), so a second row is never produced. Returns the updated settings in the same shape as `GET /api/settings`.
 
 **Request body**
 ```json
@@ -744,6 +744,16 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
   "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}"
 }
 ```
+
+| Field | Required | Rules |
+| --- | --- | --- |
+| `storeName` | yes | trimmed string, 2–80 characters |
+| `currency` | yes | exactly 3 uppercase letters (`USD`, `EUR`, `CRC`) |
+| `mainText` | no | string up to 2000 characters, or `null` to clear |
+| `contactInfo` | no | string up to 500 characters, or `null` to clear |
+| `branding` | no | string up to 500 characters (logo URL or color string), or `null` to clear |
+
+Optional fields that are omitted are stored as `null`. Any property outside the table above is rejected instead of being ignored.
 
 **Success — `200 OK`**
 ```json
@@ -757,9 +767,39 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
 }
 ```
 
+**Error — `400 Bad Request`** (empty body)
+```json
+{ "message": "Validation failed: request body must not be empty" }
+```
+
+**Error — `400 Bad Request`** (unknown field)
+```json
+{ "message": "Validation failed: unknown field(s): storename. Allowed fields: storeName, mainText, contactInfo, currency, branding" }
+```
+
+**Error — `400 Bad Request`** (missing `storeName`)
+```json
+{ "message": "Validation failed: storeName is required" }
+```
+
+**Error — `400 Bad Request`** (`storeName` out of range)
+```json
+{ "message": "Validation failed: storeName must be between 2 and 80 characters" }
+```
+
+**Error — `400 Bad Request`** (invalid currency)
+```json
+{ "message": "Validation failed: currency must be a 3-letter uppercase code (e.g. USD, EUR, CRC)" }
+```
+
+**Error — `400 Bad Request`** (optional field too long — `mainText`, `contactInfo`, `branding`)
+```json
+{ "message": "Validation failed: mainText must be at most 2000 characters" }
+```
+
 **Error — `401 Unauthorized`**
 ```json
-{ "message": "Unauthorized" }
+{ "message": "Missing or malformed Authorization header" }
 ```
 
 ---
@@ -768,33 +808,74 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
 
 ### GET /api/analytics/summary
 - **Access:** Protected/JWT
-- **Description:** Return aggregated metrics for the admin dashboard.
+- **Description:** Return the five MVP metrics for the admin dashboard in a single payload.
 
 **Request body:** none.
+
+#### Cancelled orders are excluded from revenue and best-seller
+
+A cancelled order restored its stock and represents **no sale**, so it is excluded from both `simulatedRevenue` and `bestSellingProduct`. The rule is defined once in `src/services/analyticsService.js` so the two metrics can never drift apart.
+
+`totalOrders` is the deliberate exception: it counts **every** order regardless of status, cancelled ones included.
+
+| Metric | Definition |
+| --- | --- |
+| `totalOrders` | Count of all orders, any status. |
+| `simulatedRevenue` | Sum of `Order.totalAmount` over non-cancelled orders. Decimal-safe **string**, always 2 decimals; `"0.00"` when there are no sales. |
+| `pendingOrders` | Count of orders with status `pending`. |
+| `bestSellingProduct` | Product with the highest total `OrderItem.quantity` across non-cancelled orders. Ties break on the lowest `productId`. `null` when there are no non-cancelled sales. |
+| `lowStock` | Variants at or below the configured threshold, across active products only. Reuses the same query as `GET /api/inventory/low-stock`. |
+
+`simulatedRevenue` is a string, never a JSON number, so `Decimal` precision survives the round trip. `lowStock.threshold` comes from `LOW_STOCK_THRESHOLD` (default `5`). `lowStock.items` carries the same objects as `GET /api/inventory/low-stock`, including the `isOutOfStock` flag, so one frontend renderer serves both endpoints.
 
 **Success — `200 OK`**
 ```json
 {
-  "totalRevenue": "12450.00",
-  "totalOrders": 84,
-  "ordersByStatus": {
-    "pending": 5,
-    "confirmed": 10,
-    "preparing": 3,
-    "delivered": 64,
-    "cancelled": 2
+  "totalOrders": 12,
+  "simulatedRevenue": "1499.88",
+  "pendingOrders": 3,
+  "bestSellingProduct": {
+    "productId": 1,
+    "productName": "Aurora Hoodie",
+    "unitsSold": 24
   },
-  "topProducts": [
-    { "productId": 10, "name": "Aurora Hoodie", "unitsSold": 120 },
-    { "productId": 11, "name": "Nebula Cap", "unitsSold": 75 }
-  ],
-  "lowStockVariants": [
-    { "variantId": 101, "label": "L / Black", "stock": 0 }
-  ]
+  "lowStock": {
+    "threshold": 5,
+    "count": 2,
+    "items": [
+      {
+        "variantId": 103,
+        "variantLabel": "XL / Charcoal",
+        "stock": 0,
+        "productId": 1,
+        "productName": "Aurora Hoodie",
+        "isOutOfStock": true
+      },
+      {
+        "variantId": 102,
+        "variantLabel": "L / Black",
+        "stock": 5,
+        "productId": 1,
+        "productName": "Aurora Hoodie",
+        "isOutOfStock": false
+      }
+    ]
+  }
+}
+```
+
+**Empty store** — no orders yet:
+```json
+{
+  "totalOrders": 0,
+  "simulatedRevenue": "0.00",
+  "pendingOrders": 0,
+  "bestSellingProduct": null,
+  "lowStock": { "threshold": 5, "count": 0, "items": [] }
 }
 ```
 
 **Error — `401 Unauthorized`**
 ```json
-{ "message": "Unauthorized" }
+{ "message": "Missing or malformed Authorization header" }
 ```
