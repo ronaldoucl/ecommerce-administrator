@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 
 // Load environment variables from the .env file into process.env.
-dotenv.config();
+// `quiet` suppresses dotenv's startup banner so production logs contain only our
+// own output. In hosted environments the variables come from the dashboard and no
+// .env file exists, which dotenv handles silently.
+dotenv.config({ quiet: true });
 
 // Default low-stock threshold when the env value is missing or invalid.
 const DEFAULT_LOW_STOCK_THRESHOLD = 5;
@@ -39,3 +42,21 @@ export const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
 };
+
+// Fail fast at boot when a required secret is missing, instead of letting it surface
+// later as an obscure runtime failure (an empty JWT secret makes every login throw).
+// Only the variable NAMES are reported — values are never logged.
+const REQUIRED_VARS = {
+  DATABASE_URL: config.databaseUrl,
+  JWT_SECRET: config.jwtSecret,
+};
+
+const missingVars = Object.entries(REQUIRED_VARS)
+  .filter(([, value]) => !value)
+  .map(([name]) => name);
+
+if (missingVars.length > 0) {
+  throw new Error(
+    `Missing required environment variable(s): ${missingVars.join(', ')}. See .env.example.`,
+  );
+}

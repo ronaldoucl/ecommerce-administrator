@@ -5,6 +5,7 @@
 // it finds. No validation library — plain checks only.
 
 import { badRequest } from '../utils/httpError.js';
+import { parseRouteId } from './id.validator.js';
 
 // Numeric strings we accept for Decimal fields: "49", "49.90". Deliberately strict,
 // so exotic literals ("0x10", "1e5", "Infinity") are rejected instead of silently
@@ -120,11 +121,7 @@ export function validateUpdateProduct(body) {
   return data;
 }
 
-// Route param :id — must be a positive integer.
+// Route param :id — must be a positive integer within the int4 range.
 export function validateProductId(value) {
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw badRequest('id must be a positive integer');
-  }
-  return id;
+  return parseRouteId(value);
 }

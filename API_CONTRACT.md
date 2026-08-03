@@ -21,8 +21,34 @@ Common error responses reused below:
 | Status | When | Example body |
 | ------ | ---- | ------------ |
 | `400 Bad Request` | Validation failed | `{ "message": "Validation failed: name is required" }` |
+| `400 Bad Request` | Request body is not parseable JSON | `{ "message": "Malformed JSON body" }` |
 | `401 Unauthorized` | Missing/invalid/expired JWT | `{ "message": "Unauthorized" }` |
-| `404 Not Found` | Resource does not exist | `{ "message": "Resource not found" }` |
+| `404 Not Found` | Resource does not exist, or the route is unknown | `{ "message": "Resource not found" }` / `{ "message": "Not found" }` |
+| `500 Internal Server Error` | Unexpected server failure | `{ "message": "Internal server error" }` |
+
+- **Route params** — any `:id` must be a positive integer within the PostgreSQL `int4`
+  range (max `2147483647`). Anything else (`abc`, `0`, `-1`, `2147483648`) returns
+  `400 { "message": "Validation failed: id must be a positive integer" }`, never a `500`.
+- **Internal errors are never disclosed.** Unexpected failures always return the generic
+  `500` body above; the real error (stack trace, Prisma query, driver message) is logged
+  server-side only. The one deliberate exception is the checkout reference-collision
+  error documented under `POST /api/checkout`, whose message is caller-facing by design.
+
+---
+
+## Health
+
+### GET /api/health
+- **Access:** Public
+- **Description:** Liveness probe. Used as the hosting platform's health check path
+  (see `backend/render.yaml`), so it must stay public and unauthenticated.
+
+**Request body:** none.
+
+**Success — `200 OK`**
+```json
+{ "status": "ok" }
+```
 
 ---
 

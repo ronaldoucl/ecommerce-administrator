@@ -8,7 +8,6 @@ import orderRoutes from './order.routes.js';
 import settingsRoutes from './settings.routes.js';
 import inventoryRoutes from './inventory.routes.js';
 import analyticsRoutes from './analyticsRoutes.js';
-import { requireAuth } from '../middleware/requireAuth.js';
 
 // Aggregator router — mounts every feature router under /api.
 const router = Router();
@@ -22,10 +21,5 @@ router.use('/orders', orderRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/analytics', analyticsRoutes);
-
-// Temporary route to validate requireAuth. Remove once feature routes exist.
-router.get('/protected-test', requireAuth, (req, res) => {
-  res.status(200).json({ message: 'You are authenticated', user: req.user });
-});
 
 export default router;

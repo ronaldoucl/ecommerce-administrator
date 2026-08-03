@@ -4,6 +4,7 @@
 // ready for the service, or throws a 400 error (see src/utils/httpError.js).
 
 import { badRequest } from '../utils/httpError.js';
+import { parseRouteId } from './id.validator.js';
 
 // Numeric strings accepted for the Decimal price: "54", "54.90".
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
@@ -81,11 +82,7 @@ export function validateUpdateVariant(body) {
   return data;
 }
 
-// Route param :id — must be a positive integer.
+// Route param :id — must be a positive integer within the int4 range.
 export function validateVariantId(value) {
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw badRequest('id must be a positive integer');
-  }
-  return id;
+  return parseRouteId(value);
 }
