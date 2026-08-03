@@ -132,12 +132,16 @@ export async function checkout(input) {
         continue;
       }
       if (isReferenceCollision(err)) {
-        throw createHttpError(500, 'Could not generate a unique order reference. Please try again.');
+        throw createHttpError(500, 'Could not generate a unique order reference. Please try again.', {
+          expose: true,
+        });
       }
       throw err;
     }
   }
 
   // Unreachable: the loop either returns or throws, but keeps the function total.
-  throw createHttpError(500, 'Could not generate a unique order reference. Please try again.');
+  throw createHttpError(500, 'Could not generate a unique order reference. Please try again.', {
+    expose: true,
+  });
 }

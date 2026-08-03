@@ -5,6 +5,7 @@
 // that return normalized values or throw an HTTP error (see src/utils/httpError.js).
 
 import { badRequest, conflict, createHttpError } from '../utils/httpError.js';
+import { parseRouteId } from './id.validator.js';
 
 // The only statuses an order may hold. Order matters only for display.
 export const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'delivered', 'cancelled'];
@@ -23,13 +24,9 @@ const MAX_PAGE_SIZE = 100;
 // Exact message required by the contract for an unknown status (no "Validation failed:" prefix).
 const INVALID_STATUS_MESSAGE = `Invalid status. Allowed values: ${ORDER_STATUSES.join(', ')}`;
 
-// Route param :id — must be a positive integer.
+// Route param :id — must be a positive integer within the int4 range.
 export function validateOrderId(value) {
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw badRequest('id must be a positive integer');
-  }
-  return id;
+  return parseRouteId(value);
 }
 
 function parsePositiveIntParam(value, field, fallback) {
