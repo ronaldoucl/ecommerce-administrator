@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import Button from '../components/Button/Button';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './Cart.module.css';
 
@@ -13,6 +14,7 @@ import styles from './Cart.module.css';
  */
 function Cart() {
   const { items, subtotal, itemCount, updateQuantity, removeItem, clearCart } = useCart();
+  const { currency } = useSettings();
 
   if (items.length === 0) {
     return (
@@ -52,7 +54,7 @@ function Cart() {
               <div className={styles.info}>
                 <p className={styles.name}>{item.name}</p>
                 {item.label && <p className={styles.variant}>{item.label}</p>}
-                <p className={styles.unitPrice}>{formatPrice(item.unitPrice)} each</p>
+                <p className={styles.unitPrice}>{formatPrice(item.unitPrice, currency)} each</p>
               </div>
 
               <div className={styles.qty} aria-label={`Quantity for ${item.name}`}>
@@ -78,7 +80,7 @@ function Cart() {
                 </button>
               </div>
 
-              <p className={styles.lineTotal}>{formatPrice(lineTotal)}</p>
+              <p className={styles.lineTotal}>{formatPrice(lineTotal, currency)}</p>
 
               <button
                 type="button"
@@ -95,7 +97,7 @@ function Cart() {
       <footer className={styles.summary}>
         <div className={styles.subtotalRow}>
           <span>Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
-          <strong className={styles.subtotal}>{formatPrice(subtotal)}</strong>
+          <strong className={styles.subtotal}>{formatPrice(subtotal, currency)}</strong>
         </div>
         <Button as={Link} to="/checkout">
           Proceed to checkout

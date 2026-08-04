@@ -60,6 +60,16 @@
   font-size: var(--font-size-lg);
 }
 
+/* Configured branding logo, sized to match the placeholder badge */
+.logoImage {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+  background-color: var(--color-primary-light);
+}
+
 .brandName {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
@@ -119,6 +129,10 @@
 .contactStore {
   color: var(--color-text);
   font-size: var(--font-size-base);
+}
+
+.tagline {
+  font-style: italic;
 }
 
 .footerText {

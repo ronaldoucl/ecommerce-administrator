@@ -10,6 +10,25 @@
   margin-bottom: var(--space-6);
 }
 
+/* ── Store intro (store name + main text from the settings) ───────────── */
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.storeName {
+  margin: 0;
+}
+
+.mainText {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+  white-space: pre-line; /* keep line breaks typed in the admin textarea */
+}
+
 .error {
   color: var(--color-danger);
   margin-bottom: var(--space-4);

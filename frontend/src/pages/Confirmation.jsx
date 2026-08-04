@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 
 import Card from '../components/Card/Card';
 import Button from '../components/Button/Button';
+import { useSettings } from '../context/SettingsContext';
 import { formatPrice } from '../utils/format';
 import styles from './Confirmation.module.css';
 
@@ -43,6 +44,7 @@ const SIMULATED_NOTE =
 function Confirmation() {
   const { reference } = useParams();
   const location = useLocation();
+  const { currency } = useSettings();
   const [copied, setCopied] = useState(false);
 
   const order = useMemo(
@@ -155,17 +157,17 @@ function Confirmation() {
                   <p className={styles.lineVariant}>{item.variantLabel}</p>
                 )}
                 <p className={styles.lineMeta}>
-                  {formatPrice(item.unitPrice)} × {item.quantity}
+                  {formatPrice(item.unitPrice, currency)} × {item.quantity}
                 </p>
               </div>
-              <p className={styles.lineTotal}>{formatPrice(item.lineTotal)}</p>
+              <p className={styles.lineTotal}>{formatPrice(item.lineTotal, currency)}</p>
             </li>
           ))}
         </ul>
 
         <div className={styles.totalRow}>
           <span>Total</span>
-          <strong className={styles.total}>{formatPrice(order.totalAmount)}</strong>
+          <strong className={styles.total}>{formatPrice(order.totalAmount, currency)}</strong>
         </div>
       </Card>
 
