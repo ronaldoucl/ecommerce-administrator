@@ -23,7 +23,9 @@
 }
 
 .clear {
-  padding: 0;
+  /* Vertical padding only: keeps the text position but gives the bare-text
+     button a comfortable touch area on mobile. */
+  padding: var(--space-2) 0;
   font: inherit;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
@@ -72,12 +74,16 @@
 
 .info {
   grid-area: info;
+  /* Grid items default to min-width:auto, so without this a long product name
+     widens the 1fr column and pushes the page into horizontal scroll. */
+  min-width: 0;
 }
 
 .name {
   margin: 0;
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
+  overflow-wrap: anywhere; /* product names are user-defined and may not wrap */
 }
 
 .variant {
@@ -141,7 +147,8 @@
 .remove {
   grid-area: remove;
   justify-self: start;
-  padding: 0;
+  /* Vertical padding only: enlarges the touch area without moving the text. */
+  padding: var(--space-2) 0;
   font: inherit;
   font-size: var(--font-size-sm);
   color: var(--color-danger);

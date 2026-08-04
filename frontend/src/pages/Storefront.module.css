@@ -81,6 +81,7 @@
 
 .productTitle {
   margin-bottom: var(--space-2);
+  overflow-wrap: anywhere; /* product names are user-defined and may not wrap */
 }
 
 .productDesc {
@@ -145,6 +146,7 @@
 .cardTitle {
   margin: 0;
   font-size: var(--font-size-base);
+  overflow-wrap: anywhere; /* product names are user-defined and may not wrap */
 }
 
 .cardPrice {

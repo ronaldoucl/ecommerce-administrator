@@ -111,7 +111,9 @@
 }
 
 .logout {
-  padding: 0;
+  /* Vertical padding only: keeps the sidebar rhythm but gives the bare-text
+     control a comfortable touch area on mobile. */
+  padding: var(--space-2) 0;
   font: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -126,6 +128,8 @@
 }
 
 .backLink {
+  display: inline-block;
+  padding: var(--space-2) 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
