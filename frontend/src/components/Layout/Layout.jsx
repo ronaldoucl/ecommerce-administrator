@@ -1,40 +1,47 @@
 import { Link, Outlet } from 'react-router-dom';
 import Button from '../Button/Button';
 import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
 import styles from './Layout.module.css';
 
 /**
- * Public storefront shell: a header (logo placeholder + store name + cart
- * access button) and a footer (contact info) wrapped around the routed page
- * content. The base theme is applied globally, so any page rendered inside
- * this Layout inherits the palette and typography.
+ * Public storefront shell: a header (logo + store name + cart access button)
+ * and a footer (contact info) wrapped around the routed page content. The base
+ * theme is applied globally, so any page rendered inside this Layout inherits
+ * the palette and typography.
  *
- * Rendered as a route layout element; pages appear where <Outlet /> is placed.
+ * Store name, contact info and branding come from the store settings
+ * (GET /api/settings via SettingsContext), so an admin change is reflected here
+ * on the next load. Branding may carry a logo URL and/or a primary colour: the
+ * colour is applied as a local CSS variable override, so it recolours every
+ * component inside the shell without touching the global theme.
  */
-
-// Sprint 2: replace these placeholders with the real store configuration
-// loaded from GET /api/settings (store name, contact info, branding/logo).
-const STORE_NAME = 'Aurora Store';
-const CONTACT_EMAIL = 'support@example.com';
-const CONTACT_PHONE = '+1 555 0100';
-const CONTACT_ADDRESS = '123 Market Street, Springfield';
-
 function Layout() {
   const currentYear = new Date().getFullYear();
 
   // Live item count from the cart, shown in the header indicator.
   const { itemCount: cartItemCount } = useCart();
 
+  const { storeName, contactInfo, branding } = useSettings();
+
+  const shellStyle = branding.primaryColor
+    ? { '--color-primary': branding.primaryColor, '--color-primary-dark': branding.primaryColor }
+    : undefined;
+
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} style={shellStyle}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          {/* Logo placeholder + store name (links home) */}
-          <Link to="/" className={styles.brand} aria-label={`${STORE_NAME} — home`}>
-            <span className={styles.logo} aria-hidden="true">
-              {STORE_NAME.charAt(0)}
-            </span>
-            <span className={styles.brandName}>{STORE_NAME}</span>
+          {/* Branding logo when configured, otherwise the store initial */}
+          <Link to="/" className={styles.brand} aria-label={`${storeName} — home`}>
+            {branding.logoUrl ? (
+              <img className={styles.logoImage} src={branding.logoUrl} alt="" width="36" height="36" />
+            ) : (
+              <span className={styles.logo} aria-hidden="true">
+                {storeName.charAt(0)}
+              </span>
+            )}
+            <span className={styles.brandName}>{storeName}</span>
           </Link>
 
           {/* Cart access button */}
@@ -62,16 +69,18 @@ function Layout() {
 
       <footer className={styles.footer}>
         <div className={`${styles.container} ${styles.footerInner}`}>
-          {/* Contact info placeholder (Sprint 2: from store settings) */}
           <address className={styles.contact}>
-            <strong className={styles.contactStore}>{STORE_NAME}</strong>
-            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-            <a href={`tel:${CONTACT_PHONE.replace(/\s/g, '')}`}>{CONTACT_PHONE}</a>
-            <span>{CONTACT_ADDRESS}</span>
+            <strong className={styles.contactStore}>{storeName}</strong>
+            {contactInfo ? (
+              <span>{contactInfo}</span>
+            ) : (
+              <span>Contact details are not available yet.</span>
+            )}
+            {branding.text && <span className={styles.tagline}>{branding.text}</span>}
           </address>
 
           <p className={styles.footerText}>
-            &copy; {currentYear} {STORE_NAME}. All rights reserved.
+            &copy; {currentYear} {storeName}. All rights reserved.
           </p>
         </div>
       </footer>

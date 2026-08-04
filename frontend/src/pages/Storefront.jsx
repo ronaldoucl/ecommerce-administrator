@@ -3,11 +3,16 @@ import { Link } from 'react-router-dom';
 
 import Button from '../components/Button/Button';
 import { productService } from '../services';
+import { useSettings } from '../context/SettingsContext';
 import { formatPrice, placeholderImage } from '../utils/format';
 import styles from './Storefront.module.css';
 
 /**
  * Public storefront landing page.
+ *
+ * The intro block (store name and main text) comes from the store settings via
+ * SettingsContext, and the same settings supply the currency every price is
+ * rendered in.
  *
  * The featured section is populated from GET /api/products/featured via
  * `productService.getFeatured()`. The store enforces one featured product at a
@@ -16,6 +21,7 @@ import styles from './Storefront.module.css';
  * catalogue endpoint, so the grid is sourced from the same featured payload.
  */
 function Storefront() {
+  const { storeName, mainText, currency } = useSettings();
   const [featured, setFeatured] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   // `notFound` is the graceful "no featured product yet" case (API 404); it is
@@ -50,11 +56,17 @@ function Storefront() {
 
   return (
     <div className={styles.page}>
+      {/* ── Store intro (from settings) ──────────────────────────────────── */}
+      <section className={styles.intro}>
+        <h1 className={styles.storeName}>{storeName}</h1>
+        {mainText && <p className={styles.mainText}>{mainText}</p>}
+      </section>
+
       {/* ── Featured product ─────────────────────────────────────────────── */}
       <section aria-labelledby="featured-heading" className={styles.featuredSection}>
-        <h1 id="featured-heading" className={styles.sectionTitle}>
+        <h2 id="featured-heading" className={styles.sectionTitle}>
           Featured product
-        </h1>
+        </h2>
 
         {isLoading ? (
           <p role="status">Loading featured product…</p>
@@ -68,7 +80,7 @@ function Storefront() {
         ) : notFound || !hero ? (
           <p className={styles.empty}>No featured product right now. Please check back soon.</p>
         ) : (
-          <FeaturedProduct product={hero} />
+          <FeaturedProduct product={hero} currency={currency} />
         )}
       </section>
 
@@ -82,7 +94,7 @@ function Storefront() {
           <ul className={styles.grid}>
             {more.map((product) => (
               <li key={product.id} className={styles.gridItem}>
-                <ProductCard product={product} />
+                <ProductCard product={product} currency={currency} />
               </li>
             ))}
           </ul>
@@ -93,7 +105,7 @@ function Storefront() {
 }
 
 /** The headline featured product: image, name, description, price and a CTA. */
-function FeaturedProduct({ product }) {
+function FeaturedProduct({ product, currency }) {
   const image = product.images?.[0];
 
   return (
@@ -110,9 +122,9 @@ function FeaturedProduct({ product }) {
       </div>
 
       <div className={styles.details}>
-        <h2 className={styles.productTitle}>{product.name}</h2>
+        <h3 className={styles.productTitle}>{product.name}</h3>
         {product.description && <p className={styles.productDesc}>{product.description}</p>}
-        <p className={styles.price}>{formatPrice(product.basePrice)}</p>
+        <p className={styles.price}>{formatPrice(product.basePrice, currency)}</p>
 
         <div className={styles.actions}>
           <Button as={Link} to={`/product/${product.id}`}>
@@ -125,7 +137,7 @@ function FeaturedProduct({ product }) {
 }
 
 /** Compact product card used in the "More products" grid. */
-function ProductCard({ product }) {
+function ProductCard({ product, currency }) {
   const image = product.images?.[0];
 
   return (
@@ -139,7 +151,7 @@ function ProductCard({ product }) {
       />
       <div className={styles.cardBody}>
         <h3 className={styles.cardTitle}>{product.name}</h3>
-        <p className={styles.cardPrice}>{formatPrice(product.basePrice)}</p>
+        <p className={styles.cardPrice}>{formatPrice(product.basePrice, currency)}</p>
         <Button as={Link} to={`/product/${product.id}`} variant="secondary" className={styles.cardCta}>
           View
         </Button>

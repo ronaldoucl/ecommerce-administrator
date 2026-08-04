@@ -23,14 +23,38 @@ export function parsePrice(value) {
 }
 
 /**
- * Format a monetary value for display as `$49.90`.
+ * Currency used when the store settings have not been loaded (yet) or carry no
+ * usable code. The real code comes from GET /api/settings.
+ */
+export const DEFAULT_CURRENCY = 'USD';
+
+/** A valid store currency: exactly three uppercase letters, as the backend enforces. */
+const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+
+/**
+ * Format a monetary value for display in the given currency, e.g. `$49.90`
+ * (USD) or `EUR 49.90`.
+ *
+ * The value is always run through {@link parsePrice} first, so a non-numeric
+ * price renders as an em dash instead of leaking `NaN` onto the page.
  *
  * @param {string|number} value - a numeric price (string or number)
+ * @param {string} [currency=DEFAULT_CURRENCY] - ISO-4217-like 3-letter code
  * @returns {string} the formatted price, or an em dash when not a finite number
  */
-export function formatPrice(value) {
+export function formatPrice(value, currency = DEFAULT_CURRENCY) {
   const amount = parsePrice(value);
-  return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '—';
+  if (!Number.isFinite(amount)) return '—';
+
+  const code = CURRENCY_PATTERN.test(currency) ? currency : DEFAULT_CURRENCY;
+
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount);
+  } catch {
+    // Well-formed but unknown codes are rejected by some engines; still show the
+    // amount with its code rather than nothing at all.
+    return `${code} ${amount.toFixed(2)}`;
+  }
 }
 
 /**

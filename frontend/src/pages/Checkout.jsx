@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/Card/Card';
 import Button from '../components/Button/Button';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { checkoutService } from '../services';
 import { formatPrice, parsePrice } from '../utils/format';
 import styles from './Checkout.module.css';
@@ -44,6 +45,7 @@ function buildItemsPayload(items) {
  */
 function Checkout() {
   const { items, subtotal, itemCount, clearCart } = useCart();
+  const { currency } = useSettings();
   const navigate = useNavigate();
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -176,10 +178,10 @@ function Checkout() {
                     <p className={styles.lineName}>{item.name}</p>
                     {item.label && <p className={styles.lineVariant}>{item.label}</p>}
                     <p className={styles.lineMeta}>
-                      {formatPrice(item.unitPrice)} × {item.quantity}
+                      {formatPrice(item.unitPrice, currency)} × {item.quantity}
                     </p>
                   </div>
-                  <p className={styles.lineTotal}>{formatPrice(lineTotal)}</p>
+                  <p className={styles.lineTotal}>{formatPrice(lineTotal, currency)}</p>
                 </li>
               );
             })}
@@ -188,7 +190,7 @@ function Checkout() {
             <span>
               Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})
             </span>
-            <strong className={styles.subtotal}>{formatPrice(subtotal)}</strong>
+            <strong className={styles.subtotal}>{formatPrice(subtotal, currency)}</strong>
           </div>
         </Card>
 

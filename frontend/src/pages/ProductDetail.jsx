@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import Button from '../components/Button/Button';
 import { productService } from '../services';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './ProductDetail.module.css';
 
@@ -16,6 +17,7 @@ import styles from './ProductDetail.module.css';
 function ProductDetail() {
   const { id } = useParams();
   const { addItem } = useCart();
+  const { currency } = useSettings();
 
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,7 +154,7 @@ function ProductDetail() {
         {/* ── Details ───────────────────────────────────────────────────── */}
         <div className={styles.info}>
           <h1 className={styles.title}>{product.name}</h1>
-          <p className={styles.price}>{formatPrice(displayedPrice)}</p>
+          <p className={styles.price}>{formatPrice(displayedPrice, currency)}</p>
 
           {product.description && (
             <p className={styles.description}>{product.description}</p>
