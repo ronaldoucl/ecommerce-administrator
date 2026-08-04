@@ -144,6 +144,7 @@
   margin: 0;
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
+  overflow-wrap: anywhere; /* product names are user-defined and may not wrap */
 }
 
 .lineVariant {

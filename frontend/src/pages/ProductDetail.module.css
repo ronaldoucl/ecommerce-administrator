@@ -9,6 +9,12 @@
   font-size: var(--font-size-sm);
 }
 
+/* Give the back link a comfortable touch area on mobile. */
+.breadcrumb a {
+  display: inline-block;
+  padding: var(--space-2) 0;
+}
+
 .error {
   color: var(--color-danger);
   margin-bottom: var(--space-4);
@@ -77,6 +83,7 @@
 
 .title {
   margin-bottom: var(--space-2);
+  overflow-wrap: anywhere; /* product names are user-defined and may not wrap */
 }
 
 .price {
