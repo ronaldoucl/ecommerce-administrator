@@ -1,5 +1,13 @@
 .header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
+}
+
+.headerText h1 {
+  margin: 0;
 }
 
 .subtitle {
@@ -7,10 +15,19 @@
   color: var(--color-text-muted);
 }
 
-/* Responsive tile grid: single column on mobile, filling out on wider screens. */
+.refreshButton {
+  flex-shrink: 0;
+}
+
+/*
+ * Responsive tile grid.
+ *   < 40rem   single column (phones stack)
+ *   >= 40rem  two per row
+ *   >= 80rem  all five metrics on one row
+ */
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-4);
 }
 
@@ -18,6 +35,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0; /* let long product names wrap instead of widening the column */
+}
+
+/* A subtle accent bar to lift the headline metric, using existing tokens only. */
+.tileAccent {
+  border-top: 3px solid var(--color-primary);
 }
 
 .tileLabel {
@@ -30,12 +53,138 @@
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
-  line-height: 1;
+  line-height: 1.1;
+  overflow-wrap: anywhere; /* a long formatted amount must not overflow the card */
+}
+
+/* Same slot as .tileValue, but for a short sentence rather than a number. */
+.tileEmptyValue {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  line-height: 1.2;
 }
 
 .tileHint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+.tileStrong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+/* Dim the tiles while a manual refresh is in flight, so the demo shows that
+   something is happening without the numbers disappearing. */
+.tilesStale {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+/* ── Low-stock expandable list ──────────────────────────────────────────── */
+.lowStockDetails {
+  font-size: var(--font-size-xs);
+}
+
+.lowStockSummary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.lowStockSummary:hover {
+  text-decoration: underline;
+}
+
+.lowStockList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  /* Long low-stock lists must not stretch the tile past its neighbours. */
+  max-height: 12rem;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+}
+
+.lowStockItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.lowStockLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+}
+
+.lowStockCount {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.lowStockOut {
+  flex-shrink: 0;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Error state ────────────────────────────────────────────────────────── */
+.errorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+/* ── Loading skeleton ───────────────────────────────────────────────────── */
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-border);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeletonLabel {
+  width: 60%;
+  height: 0.875rem;
+}
+
+.skeletonValue {
+  width: 45%;
+  height: 1.75rem;
+}
+
+.skeletonHint {
+  width: 80%;
+  height: 0.75rem;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 /* Visually hidden but available to screen readers. */
@@ -49,4 +198,29 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Tablet and up: header goes side by side, tiles pair up. */
+@media (min-width: 40rem) {
+  .header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Wide desktop: all five metrics fit on a single row. */
+@media (min-width: 80rem) {
+  .tiles {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  /* Five columns leave each card narrow, so trim the surface padding. */
+  .tile {
+    padding: var(--space-4);
+  }
 }
