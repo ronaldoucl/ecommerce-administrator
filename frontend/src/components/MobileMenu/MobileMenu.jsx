@@ -3,28 +3,17 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import styles from './MobileMenu.module.css';
 
-/**
- * Accessible hamburger menu, shared by BOTH navigations: the public storefront
- * header and the admin dashboard shell. Only the links differ, so the toggle,
- * the drawer and every accessibility behaviour live here once.
- *
- *   <MobileMenu label="Main menu">
- *     {(close) => <Link to="/cart" onClick={close}>Cart</Link>}
- *   </MobileMenu>
- *
- * Behaviour: the button carries aria-label and aria-expanded and controls the
- * drawer by id; while open, focus is trapped inside, Escape closes, a click on
- * the backdrop (outside the panel) closes, any click within the panel content
- * closes it too (so following a link dismisses the menu), and focus returns to
- * the hamburger button. Body scrolling is locked so the page behind cannot
- * shift or scroll horizontally.
- *
- * @param {object} props
- * @param {string} [props.label='Menu'] - accessible name of the toggle button
- * @param {string} [props.title] - heading shown at the top of the drawer
- * @param {((close: () => void) => React.ReactNode)|React.ReactNode} props.children
- * @param {string} [props.className] - extra class for the toggle button
- */
+// The hamburger menu, used by both the storefront header and the admin shell.
+// Only the links differ, so everything else lives here once:
+//
+//   <MobileMenu label="Main menu">
+//     {(close) => <Link to="/cart" onClick={close}>Cart</Link>}
+//   </MobileMenu>
+//
+// While it is open, focus stays inside, Escape closes it, clicking the backdrop
+// closes it, clicking anything in the panel closes it (so tapping a link takes
+// you there and dismisses the menu), and focus goes back to the button. We also
+// lock body scrolling so the page behind cannot slide around.
 function MobileMenu({ label = 'Menu', title, children, className = '' }) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef(null);

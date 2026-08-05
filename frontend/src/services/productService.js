@@ -1,81 +1,39 @@
 import api from './api';
 
-/**
- * Product service. Wraps the `/products` endpoints from the API contract:
- * public storefront reads plus the protected admin CRUD operations. The shared
- * `api` instance attaches the JWT automatically, so the admin calls just work
- * once an admin is logged in.
- */
+// Everything under /products. The admin calls need a token, but api.js adds it
+// for us, so there is nothing to do here once the admin is logged in.
 const productService = {
-  /**
-   * Return products flagged as featured for the storefront.
-   * GET /api/products/featured (public)
-   *
-   * @returns {Promise<Array>} list of featured products with images and variants
-   */
+  // GET /api/products/featured — public. What the storefront home page shows.
   async getFeatured() {
     const { data } = await api.get('/products/featured');
     return data;
   },
 
-  /**
-   * Return a single product with its images and variants.
-   * GET /api/products/:id (public)
-   *
-   * @param {number|string} id - product id
-   * @returns {Promise<object>} the product
-   */
+  // GET /api/products/:id — public. Includes images and variants.
   async getById(id) {
     const { data } = await api.get(`/products/${id}`);
     return data;
   },
 
-  /**
-   * Return every product for the admin listing (includes inactive products).
-   * GET /api/products (protected)
-   *
-   * @returns {Promise<Array<{ id: number, name: string, basePrice: string,
-   *   isActive: boolean, isFeatured: boolean, createdAt: string }>>}
-   */
+  // GET /api/products — admin list, inactive products included.
   async list() {
     const { data } = await api.get('/products');
     return data;
   },
 
-  /**
-   * Create a new product.
-   * POST /api/products (protected)
-   *
-   * @param {{ name: string, description: string, basePrice: string,
-   *   benefits?: string|null, isActive?: boolean, isFeatured?: boolean,
-   *   images?: Array<{ url: string, alt?: string|null }> }} payload
-   * @returns {Promise<object>} the created product (201)
-   */
+  // POST /api/products
   async create(payload) {
     const { data } = await api.post('/products', payload);
     return data;
   },
 
-  /**
-   * Update an existing product. Only the provided fields are changed.
-   * PUT /api/products/:id (protected)
-   *
-   * @param {number|string} id - product id
-   * @param {object} payload - any subset of the product fields
-   * @returns {Promise<object>} the updated product
-   */
+  // PUT /api/products/:id — only the fields you send are changed.
   async update(id, payload) {
     const { data } = await api.put(`/products/${id}`, payload);
     return data;
   },
 
-  /**
-   * Delete a product.
-   * DELETE /api/products/:id (protected)
-   *
-   * @param {number|string} id - product id
-   * @returns {Promise<{ message: string }>}
-   */
+  // DELETE /api/products/:id — soft delete, the product is just deactivated.
   async remove(id) {
     const { data } = await api.delete(`/products/${id}`);
     return data;

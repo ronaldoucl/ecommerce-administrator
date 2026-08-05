@@ -9,13 +9,8 @@ const CLASS_BY_STATUS = {
   cancelled: styles.cancelled,
 };
 
-/**
- * Color-coded order status badge. The status text label is always rendered, so
- * the meaning never relies on color alone (accessibility).
- *
- * @param {object} props
- * @param {string} props.status - one of the order statuses
- */
+// Coloured badge for an order status. The text is always there too — colour on
+// its own would leave colour-blind users guessing.
 function StatusBadge({ status }) {
   const variant = CLASS_BY_STATUS[status] ?? styles.unknown;
   return <span className={`${styles.badge} ${variant}`}>{statusLabel(status)}</span>;

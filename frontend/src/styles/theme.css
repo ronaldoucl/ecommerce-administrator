@@ -1,7 +1,7 @@
 /*
- * Base theme: color palette, typography and design tokens.
- * These CSS custom properties are consumed across the app (components and
- * pages) and are applied globally through the Layout component.
+ * Colours, fonts and spacing for the whole app. Every component reads these
+ * variables instead of hardcoding values, which is what lets the store's brand
+ * colour repaint everything at once (see utils/branding.js).
  */
 
 :root {
@@ -9,6 +9,7 @@
   --color-primary: #4f46e5;        /* Indigo 600  - primary actions / brand */
   --color-primary-dark: #4338ca;   /* Indigo 700  - hover / active states   */
   --color-primary-light: #eef2ff;  /* Indigo 50   - subtle backgrounds      */
+  --color-primary-ink: #4f46e5;    /* Indigo 600  - brand colour as text on light surfaces */
   --color-accent: #f59e0b;         /* Amber 500   - highlights / badges     */
 
   --color-bg: #f8fafc;             /* Slate 50    - app background           */

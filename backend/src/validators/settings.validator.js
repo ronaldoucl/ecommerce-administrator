@@ -1,8 +1,6 @@
-// Validation for store settings payloads.
-//
-// Same style as the other validators: dependency-free checks that return a
-// NORMALIZED object for the service, or throw a 400 error (see src/utils/httpError.js)
-// describing the first problem found. No validation library.
+// Checks the settings payload and hands the service a clean object, or throws a
+// 400 describing the first thing that is wrong. No validation library — just
+// plain functions.
 
 import { badRequest } from '../utils/httpError.js';
 import {
@@ -13,19 +11,15 @@ import {
   serializeBranding,
 } from '../utils/branding.js';
 
-// ISO-4217-like currency code: exactly three uppercase letters (USD, EUR, CRC).
-// Deliberately strict — lowercase, symbols and 2/4-letter codes are rejected.
+// Three uppercase letters: USD, EUR, CRC. Strict on purpose.
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
-// Fields a client is allowed to send. Anything else is rejected so a typo
-// ("storename") fails loudly instead of being silently dropped.
+// What a client may send. Anything else is an error, so a typo like "storename"
+// fails loudly instead of being quietly ignored.
 //
-// `logoUrl` and `primaryColor` are convenience fields: they are NOT columns.
-// Both are serialized into the single `branding` column (see utils/branding.js),
-// which keeps the frozen schema untouched.
-//
-// `emailConfigured` is deliberately absent: it is derived from the environment
-// and returned read-only by GET, so sending it back is rejected like any typo.
+// logoUrl and primaryColor are not columns — they get packed into `branding`.
+// emailConfigured is missing on purpose: it is read-only, so sending it back is
+// treated like any other typo.
 const ALLOWED_FIELDS = [
   'storeName',
   'mainText',
@@ -37,12 +31,10 @@ const ALLOWED_FIELDS = [
   'emailEnabled',
 ];
 
-// The `branding` column is capped at 500 characters, so the logo URL has to stay
-// comfortably inside the serialized JSON.
+// The branding column holds 500 chars, so the URL has to fit inside the JSON.
 const LOGO_URL_MAX = 300;
 const BRANDING_MAX = 500;
 
-// Required trimmed string constrained to [min, max] characters.
 function parseBoundedString(value, field, min, max) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw badRequest(`${field} is required`);
@@ -54,8 +46,7 @@ function parseBoundedString(value, field, min, max) {
   return trimmed;
 }
 
-// Optional free-text field: a trimmed string capped at `max` characters,
-// or null to clear the column.
+// Optional text: a trimmed string, or null to clear the column.
 function parseOptionalBoundedString(value, field, max) {
   if (value === null) return null;
   if (typeof value !== 'string') {
@@ -68,8 +59,8 @@ function parseOptionalBoundedString(value, field, max) {
   return trimmed;
 }
 
-// Strict boolean: only a real `true`/`false` is accepted, so a stringy "false"
-// (which is truthy in JavaScript) can never switch notifications on by accident.
+// Only a real true/false. The string "false" is truthy in JS and would switch
+// notifications ON, which is exactly the bug this prevents.
 function parseBoolean(value, field) {
   if (typeof value !== 'boolean') {
     throw badRequest(`${field} must be a boolean`);
@@ -88,7 +79,7 @@ function parseCurrency(value) {
   return trimmed;
 }
 
-// Optional logo URL: an absolute http(s) URL, or empty/null to remove the logo.
+// Empty or null both mean "no logo".
 function parseLogoUrl(value) {
   if (value === null) return null;
   if (typeof value !== 'string') {
@@ -107,8 +98,7 @@ function parseLogoUrl(value) {
   return trimmed;
 }
 
-// Optional primary colour: #RGB or #RRGGBB, normalized to uppercase #RRGGBB,
-// or empty/null to fall back to the default theme colour.
+// Empty or null both mean "use the default theme colour".
 function parsePrimaryColor(value) {
   if (value === null) return null;
   if (typeof value !== 'string') {
@@ -124,21 +114,17 @@ function parsePrimaryColor(value) {
   return normalizeHexColor(trimmed);
 }
 
-/**
- * Resolve the value stored in the single `branding` column.
- *
- * PUT /api/settings replaces the whole row, so branding is rebuilt from the
- * payload on every save:
- *   - when `logoUrl` / `primaryColor` are sent, they win and are serialized to
- *     JSON (any tagline carried by a `branding` string in the same request is
- *     preserved);
- *   - otherwise a raw `branding` string is parsed — including legacy bare URLs
- *     and bare hex colours — and normalized into the JSON shape.
- */
+// Works out what goes in the single `branding` column.
+//
+// PUT replaces the whole row, so we rebuild branding every save:
+//   - if logoUrl / primaryColor were sent, they win (and we keep any tagline the
+//     `branding` string in the same request was carrying);
+//   - otherwise we parse the raw `branding` string — old bare URLs and colours
+//     included — and save it back in the JSON shape.
 function resolveBranding(body) {
   const usesStructuredFields = body.logoUrl !== undefined || body.primaryColor !== undefined;
 
-  // Parsing never throws, so a legacy value can always be read back.
+  // parseBranding never throws, so an old value can always be read.
   const current = parseBranding(
     typeof body.branding === 'string' ? body.branding : null,
   );
@@ -163,15 +149,14 @@ function resolveBranding(body) {
   return branding;
 }
 
-// A `branding` string sent on its own: length-checked as before, then normalized
-// into the JSON shape so legacy values converge on the current contract.
+// A `branding` string on its own: check the length, then rewrite it as JSON so
+// old values slowly converge on the current format.
 function parseRawBranding(value) {
   const raw = parseOptionalBoundedString(value, 'branding', BRANDING_MAX);
   if (raw === null || raw === '') return null;
   return serializeBranding(parseBranding(raw));
 }
 
-// Reject any property that is not part of the settings payload.
 function rejectUnknownFields(body) {
   const unknown = Object.keys(body).filter((key) => !ALLOWED_FIELDS.includes(key));
   if (unknown.length > 0) {
@@ -181,8 +166,8 @@ function rejectUnknownFields(body) {
   }
 }
 
-// PUT /api/settings — storeName and currency are required; the rest are optional
-// and may be null to clear them. Unknown fields and empty bodies are rejected.
+// storeName and currency are required; everything else is optional and can be
+// null to clear it.
 export function validateUpdateSettings(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw badRequest('request body is required');
@@ -205,8 +190,8 @@ export function validateUpdateSettings(body) {
         ? null
         : parseOptionalBoundedString(body.contactInfo, 'contactInfo', 500),
     branding: resolveBranding(body),
-    // Omitted means "off", consistent with every other optional field on this
-    // endpoint: PUT replaces the whole row, so the client sends it every time.
+    // Not sent means off, same as every other optional field here: PUT replaces
+    // the row, so the client has to send it every time.
     emailEnabled:
       body.emailEnabled === undefined ? false : parseBoolean(body.emailEnabled, 'emailEnabled'),
   };

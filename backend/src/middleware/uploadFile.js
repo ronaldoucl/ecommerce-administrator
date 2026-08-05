@@ -3,23 +3,21 @@ import multer from 'multer';
 import { badRequest } from '../utils/httpError.js';
 import { MAX_IMAGE_BYTES } from '../validators/upload.validator.js';
 
-// Multipart parsing for the image upload endpoint.
+// Reads the multipart body for the image upload endpoint.
 //
-// The file is kept in MEMORY, never written to disk: it is streamed straight on
-// to Cloudinary by the upload service, so the API keeps no local state and works
-// on hosts with an ephemeral filesystem (Render, Vercel).
+// The file stays in memory and never hits the disk — the upload service pipes it
+// straight to Cloudinary. That also means we do not depend on a writable
+// filesystem, which hosts like Render do not really give us.
 
 const parseSingleFile = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_IMAGE_BYTES, files: 1 },
 }).single('file');
 
-/**
- * Parse one `file` field from a multipart request into `req.file`.
- *
- * Multer reports its own limits as errors without a status, which would surface
- * as a 500. They are translated here into the shared 400 `{ message }` shape.
- */
+// Puts the file in req.file.
+//
+// Multer throws its limit errors without a status, so they would come out as a
+// 500. We turn them into normal 400s here.
 export function uploadSingleImage(req, res, next) {
   parseSingleFile(req, res, (err) => {
     if (!err) return next();

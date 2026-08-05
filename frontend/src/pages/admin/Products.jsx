@@ -10,16 +10,12 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/format';
 import styles from './Products.module.css';
 
-/**
- * Admin products listing. Shows every product (active and inactive) in a table
- * with row actions: edit, activate/deactivate, feature/unfeature and delete.
- * Every mutation goes through the product service and the list is refreshed
- * afterwards so the table always reflects the real API state.
- *
- * Every action that changes a product's state is gated by the shared confirm
- * dialog (which spells out exactly what will happen) and reports its outcome
- * with a toast — there is no window.confirm anywhere.
- */
+// Products table with the row actions: edit, activate/deactivate, feature and
+// delete. After every change we reload the list, so the table always shows what
+// the API really has rather than what we hoped happened.
+//
+// Every action goes through the confirm dialog and reports back with a toast.
+// No window.confirm anywhere.
 function Products() {
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -30,8 +26,8 @@ function Products() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  // Id of the product whose row action is in flight (disables that row), plus
-  // a shared banner for any action that fails.
+  // Which row is busy (so we can disable just that one), plus a banner for
+  // whatever failed.
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
 
@@ -53,14 +49,9 @@ function Products() {
     load();
   }, [load]);
 
-  /**
-   * Confirm a state change, then run it.
-   *
-   * The dialog owns the loading state and keeps itself open with the backend
-   * `{ message }` if the call fails (so the error is never lost), while this
-   * function marks the row busy, refreshes the list and raises the success
-   * toast once the change is actually stored.
-   */
+  // Ask first, then do it. The dialog handles its own loading state and stays
+  // open with the error if it fails; we handle marking the row busy, reloading
+  // the list and the success toast.
   const confirmRowAction = (product, { successMessage, run, ...dialog }) =>
     confirm({
       ...dialog,
@@ -71,8 +62,8 @@ function Products() {
         try {
           await run();
         } catch (err) {
-          // Report the backend { message } as an error toast, and re-throw so the
-          // dialog also stays open with it — the user keeps the context to retry.
+          // Toast the error AND re-throw it, so the dialog stays open with the
+          // same message and you can just try again.
           setBusyId(null);
           toast.error(err?.message || 'The action could not be completed.');
           throw err;
@@ -81,7 +72,7 @@ function Products() {
         try {
           await load();
         } catch (err) {
-          // The change itself succeeded; only the refresh failed.
+          // The change worked, it was only the reload that failed.
           setActionError(err.message || 'The list could not be refreshed.');
         } finally {
           setBusyId(null);
@@ -125,8 +116,8 @@ function Products() {
     confirmRowAction(product, {
       title: 'Delete this product?',
       message: `"${product.name}" will be removed from the storefront.`,
-      // Deleting is a soft delete (S3-LUC-00): the row is deactivated so order
-      // history keeps referencing it. Say so, rather than implying data loss.
+      // It is a soft delete — the product is deactivated, not removed, so old
+      // orders still point at something. Worth saying so we do not scare anyone.
       warning:
         'This is a soft delete: the product is deactivated and unfeatured, never erased, so past orders keep their history. You can reactivate it later.',
       confirmLabel: 'Delete product',

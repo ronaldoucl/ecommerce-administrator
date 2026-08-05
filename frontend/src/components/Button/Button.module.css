@@ -32,14 +32,18 @@
   border-color: var(--color-border);
 }
 
+/*
+ * Text painted with the brand colour uses the `-ink` variant: the same colour,
+ * darkened when needed so a pale brand still reads against the light surface.
+ */
 .secondary:hover:not(:disabled) {
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-ink);
 }
 
 .ghost {
   background-color: transparent;
-  color: var(--color-primary);
+  color: var(--color-primary-ink);
 }
 
 .ghost:hover:not(:disabled) {

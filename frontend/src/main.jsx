@@ -9,9 +9,8 @@ import { SettingsProvider } from './context/SettingsContext.jsx';
 import { ToastProvider } from './components/Toast/ToastProvider.jsx';
 import { ConfirmProvider } from './components/ConfirmModal/ConfirmProvider.jsx';
 
-// ToastProvider and ConfirmProvider are mounted once here, so every screen can
-// raise a toast (useToast) or ask for confirmation (useConfirm) without
-// rendering its own overlay.
+// Toast and Confirm go here once, at the top, so any page can call useToast() or
+// useConfirm() without rendering its own overlay.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

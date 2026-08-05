@@ -1,17 +1,12 @@
-// Validation for product-variant payloads.
-//
-// Same style as product.validator.js: each function returns a NORMALIZED object
-// ready for the service, or throws a 400 error (see src/utils/httpError.js).
+// Checks for variant payloads. Same idea as product.validator.js.
 
 import { badRequest } from '../utils/httpError.js';
 import { parseRouteId } from './id.validator.js';
 
-// Numeric strings accepted for the Decimal price: "54", "54.90".
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 
-// price is an OPTIONAL override of Product.basePrice. Accepts a positive number or
-// numeric string, or null to clear the override (fall back to the product price).
-// Never returns NaN.
+// price overrides the product's basePrice. null clears the override, so the
+// variant goes back to selling at the product price.
 function parsePrice(value) {
   if (value === null) return null;
 
@@ -27,14 +22,13 @@ function parsePrice(value) {
     if (!DECIMAL_PATTERN.test(trimmed) || Number(trimmed) <= 0) {
       throw badRequest('price must be a positive number');
     }
-    // Keep the string form so trailing decimals ("54.90") survive as-is.
+    // Keep it as a string so "54.90" does not become 54.9.
     return trimmed;
   }
 
   throw badRequest('price must be a positive number');
 }
 
-// stock is the on-hand inventory for the variant: a non-negative integer.
 function parseStock(value) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw badRequest('stock must be a non-negative integer');
@@ -42,7 +36,6 @@ function parseStock(value) {
   return value;
 }
 
-// label is a required non-empty string.
 function parseRequiredLabel(value) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw badRequest('label is required');
@@ -50,8 +43,7 @@ function parseRequiredLabel(value) {
   return value.trim();
 }
 
-// POST /api/products/:id/variants — label required; price and stock optional.
-// stock defaults to 0 (matching the schema default) when omitted.
+// Create: only the label is required. stock defaults to 0, same as the schema.
 export function validateCreateVariant(body) {
   if (!body || typeof body !== 'object') {
     throw badRequest('request body is required');
@@ -64,7 +56,7 @@ export function validateCreateVariant(body) {
   };
 }
 
-// PUT /api/variants/:id — every field optional, but at least one must be present.
+// Update: everything optional, but send at least one field.
 export function validateUpdateVariant(body) {
   if (!body || typeof body !== 'object') {
     throw badRequest('request body is required');
@@ -82,7 +74,6 @@ export function validateUpdateVariant(body) {
   return data;
 }
 
-// Route param :id — must be a positive integer within the int4 range.
 export function validateVariantId(value) {
   return parseRouteId(value);
 }

@@ -1,22 +1,15 @@
 import styles from './Button.module.css';
 
-/**
- * Reusable button.
- *
- * Polymorphic: renders a native <button> by default, but can render any other
- * element/component via the `as` prop (e.g. `as={Link}` or `as="a"`) so a
- * link can look like a button without nesting interactive elements.
- *
- * @param {object} props
- * @param {React.ElementType} [props.as='button'] - Element/component to render.
- * @param {'primary'|'secondary'|'ghost'|'danger'} [props.variant='primary'] - Visual style.
- * @param {'button'|'submit'|'reset'} [props.type] - Native button type (only when rendering a <button>).
- * @param {React.ReactNode} props.children - Button label / content.
- */
+// Our button. Renders a real <button> normally, but `as` lets it be something
+// else (as={Link}, as="a") so a link can look like a button without putting a
+// link inside a button.
+//
+// variant: primary | secondary | ghost | danger
 function Button({ as: Component = 'button', variant = 'primary', type, className = '', children, ...rest }) {
   const classes = [styles.button, styles[variant], className].filter(Boolean).join(' ');
 
-  // `type` only applies to a real <button>; default it to "button" there.
+  // Only a real <button> takes `type`, and we default it to "button" so it does
+  // not accidentally submit a form.
   const typeProp = Component === 'button' ? { type: type || 'button' } : {};
 
   return (

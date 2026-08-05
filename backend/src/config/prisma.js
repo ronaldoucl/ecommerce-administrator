@@ -1,9 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
-// Global-singleton PrismaClient.
-// During development nodemon hot-reloads modules, which would otherwise create a new
-// PrismaClient (and a new connection pool) on every reload and exhaust DB connections.
-// Caching the instance on globalThis guarantees a single client per process.
+// One PrismaClient for the whole process.
+//
+// In dev, nodemon reloads modules on every save. Without this cache each reload
+// would build a new client with a new connection pool, and we would run the
+// database out of connections after a few edits.
 const globalForPrisma = globalThis;
 
 export const prisma =

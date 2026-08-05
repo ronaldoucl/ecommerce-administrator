@@ -7,18 +7,13 @@ import { useSettings } from '../context/SettingsContext';
 import { formatPrice } from '../utils/format';
 import styles from './Confirmation.module.css';
 
-/**
- * Resolve the order backing this confirmation, in priority order:
- *   1. The order passed through router state by the checkout page.
- *   2. sessionStorage "last_order", but ONLY when its reference matches the
- *      :reference in the URL — so an old order never renders under a new one.
- *
- * Returns null when neither source is available (direct link, refresh in a new
- * tab, cleared storage); the page then shows a graceful reference-only view.
- *
- * GET /api/orders/:id is admin-only, so there is deliberately no re-fetch here:
- * the public confirmation renders strictly from data checkout already returned.
- */
+// Finds the order for this page, in this order:
+//   1. what the checkout page passed through router state,
+//   2. sessionStorage, but only if its reference matches the one in the URL —
+//      otherwise an old order could show up under a new reference.
+//
+// Null if we have neither (someone opened the link directly, or refreshed in a
+// new tab). We cannot just re-fetch it: GET /api/orders/:id is admin-only.
 function readOrder(reference, stateOrder) {
   if (stateOrder) return stateOrder;
 
@@ -28,7 +23,7 @@ function readOrder(reference, stateOrder) {
     const stored = JSON.parse(raw);
     if (stored?.reference && stored.reference === reference) return stored;
   } catch {
-    // Ignore missing/corrupt storage — fall through to the reference-only view.
+    // Nothing saved, or it is corrupt. Fall through to the short version.
   }
   return null;
 }
@@ -37,10 +32,8 @@ const SIMULATED_NOTE =
   'This is a simulated order for an academic project — no real payment was ' +
   'taken and no goods will be shipped.';
 
-/**
- * Public order confirmation shown after a successful checkout at
- * /confirmation/:reference. Read-only: it never touches the cart or the network.
- */
+// The "thanks for your order" page. Read-only — it never touches the cart or
+// makes a request.
 function Confirmation() {
   const { reference } = useParams();
   const location = useLocation();
@@ -61,8 +54,8 @@ function Confirmation() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard may be unavailable (insecure context / denied permission);
-      // the reference is shown in full for manual selection, so fail silently.
+      // The clipboard API is not always allowed. No big deal — the reference is
+      // right there on screen to copy by hand.
     }
   };
 
@@ -87,8 +80,8 @@ function Confirmation() {
     </Card>
   );
 
-  // Reference-only view: the order exists, this browser just lacks the details.
-  // This is NOT an error state.
+  // Short version: the order is fine, this browser just does not have the
+  // details. Not an error.
   if (!order) {
     return (
       <section className={styles.page}>

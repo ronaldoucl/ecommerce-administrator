@@ -3,23 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { placeholderImage } from '../../utils/format';
 import styles from './ProductGallery.module.css';
 
-/**
- * Product image gallery: a large main image with a strip of thumbnails for the
- * other angles, the way a shopper expects on a product page.
- *
- * The images arrive in their stored order and the FIRST one is the product's
- * primary image, so it is what shows first. Clicking (or arrowing onto) a
- * thumbnail swaps the main image.
- *
- * Degrades gracefully at both ends: a product with a single image shows no
- * thumbnail strip, a product with none shows a generated placeholder, and an
- * image URL that fails to load falls back to that placeholder instead of a
- * broken-image icon.
- *
- * @param {object} props
- * @param {Array<{ id?: number, url: string, alt?: string|null }>} [props.images]
- * @param {string} props.productName - used for the alt text and the placeholder
- */
+// Big image plus a row of thumbnails, like any product page. The images come in
+// saved order and the first one is the main image, so that is what shows first.
+//
+// Handles the edge cases: one image means no thumbnail strip, no images means a
+// generated placeholder, and a URL that will not load falls back to that same
+// placeholder instead of a broken image icon.
 function ProductGallery({ images = [], productName }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failedUrls, setFailedUrls] = useState(() => new Set());

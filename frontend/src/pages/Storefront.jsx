@@ -7,25 +7,21 @@ import { useSettings } from '../context/SettingsContext';
 import { formatPrice, placeholderImage } from '../utils/format';
 import styles from './Storefront.module.css';
 
-/**
- * Public storefront landing page.
- *
- * The intro block (store name and main text) comes from the store settings via
- * SettingsContext, and the same settings supply the currency every price is
- * rendered in.
- *
- * The featured section is populated from GET /api/products/featured via
- * `productService.getFeatured()`. The store enforces one featured product at a
- * time, so that product headlines the page; should the endpoint ever return
- * more, the extras fill the "More products" grid. There is no public
- * catalogue endpoint, so the grid is sourced from the same featured payload.
- */
+// The shop's home page.
+//
+// The store name, welcome text and currency come from the settings. The product
+// comes from GET /api/products/featured.
+//
+// Only one product can be featured at a time, so that one headlines the page. If
+// the endpoint ever returns more, the extras go in the "More products" grid —
+// there is no public catalogue endpoint to fill it from otherwise.
 function Storefront() {
   const { storeName, mainText, currency } = useSettings();
   const [featured, setFeatured] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  // `notFound` is the graceful "no featured product yet" case (API 404); it is
-  // kept separate from `error`, which signals an actual failure worth retrying.
+  // Separate states on purpose: notFound means "no featured product yet" (a 404,
+  // perfectly normal), while error means something actually broke and a Retry
+  // button makes sense.
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState('');
 
@@ -104,7 +100,7 @@ function Storefront() {
   );
 }
 
-/** The headline featured product: image, name, description, price and a CTA. */
+// The big featured product at the top.
 function FeaturedProduct({ product, currency }) {
   const image = product.images?.[0];
 
@@ -136,7 +132,7 @@ function FeaturedProduct({ product, currency }) {
   );
 }
 
-/** Compact product card used in the "More products" grid. */
+// Smaller card for the grid underneath.
 function ProductCard({ product, currency }) {
   const image = product.images?.[0];
 

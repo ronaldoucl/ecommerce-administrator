@@ -16,27 +16,17 @@
 }
 
 .tableWrap {
-  overflow-x: auto;
+  composes: tableWrap from '../../styles/tables.module.css';
 }
 
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
+  composes: table from '../../styles/tables.module.css';
 }
 
+/* Product rows stay on one line; the wrapper scrolls instead of wrapping cells. */
 .table th,
 .table td {
-  padding: var(--space-3);
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  vertical-align: middle;
   white-space: nowrap;
-}
-
-.table th {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
 }
 
 .badgeOn,

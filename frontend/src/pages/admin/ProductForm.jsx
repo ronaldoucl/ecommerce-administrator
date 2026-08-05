@@ -12,7 +12,7 @@ import { productService } from '../../services';
 import VariantManager from './VariantManager';
 import styles from './ProductForm.module.css';
 
-// Monetary strings the API accepts for Decimal fields: "49" or "49.90".
+// What the API accepts as a price: "49" or "49.90".
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 
 const EMPTY_FORM = {
@@ -24,16 +24,12 @@ const EMPTY_FORM = {
   isFeatured: false,
 };
 
-/**
- * Create / edit a product. The same component serves both `/admin/products/new`
- * and `/admin/products/:id/edit`; the presence of a route `id` decides the mode.
- *
- * In edit mode the current product is loaded to prefill the form and its
- * variants are managed inline through <VariantManager>. The product gallery is
- * edited with <ImageManager> and sent as an ORDERED `images` array, where the
- * first entry is the primary image. Fields are validated on the client before
- * submitting, and server `{ message }` errors are surfaced.
- */
+// Handles both /admin/products/new and /admin/products/:id/edit — if there is an
+// id in the URL we are editing, otherwise we are creating.
+//
+// Editing also shows <VariantManager> inline. The gallery goes through
+// <ImageManager> and is sent as an ordered array where the first image is the
+// main one.
 function ProductForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -41,7 +37,7 @@ function ProductForm() {
   const toast = useToast();
 
   const [form, setForm] = useState(EMPTY_FORM);
-  // Gallery rows, kept separate from the scalar fields: [{ url, alt }, ...].
+  // The gallery rows live apart from the normal fields: [{ url, alt }, ...].
   const [images, setImages] = useState([]);
   const [initialVariants, setInitialVariants] = useState([]);
 
@@ -91,7 +87,7 @@ function ProductForm() {
     setSavedMessage('');
   };
 
-  // Client-side validation mirroring the server rules for the required fields.
+  // Same checks the server does, just sooner.
   const validate = () => {
     const errors = {};
 
@@ -105,7 +101,7 @@ function ProductForm() {
       errors.basePrice = 'Base price must be a positive number (e.g. 49.90).';
     }
 
-    // Blank gallery rows are ignored on save; anything typed must be a real URL.
+    // Blank rows just get dropped; anything typed has to be a real URL.
     if (images.some((image) => imageUrlError(image.url))) {
       errors.images = 'Every image row must hold a full http(s) URL, or be removed.';
     }
@@ -121,7 +117,7 @@ function ProductForm() {
 
     if (!validate()) return;
 
-    // benefits is optional: send null to clear it rather than an empty string.
+    // null clears the column; "" would just store an empty string.
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
@@ -129,8 +125,8 @@ function ProductForm() {
       basePrice: form.basePrice.trim(),
       isActive: form.isActive,
       isFeatured: form.isFeatured,
-      // Sent in the exact order shown in the editor; the backend syncs the
-      // gallery to match it and treats the first entry as the primary image.
+      // Order matters: the backend rebuilds the gallery to match this list and
+      // the first one becomes the main image.
       images: toImagePayload(images),
     };
 
@@ -139,7 +135,7 @@ function ProductForm() {
     try {
       if (isEdit) {
         const updated = await productService.update(id, payload);
-        // Reflect what was actually stored (ids and order) back into the editor.
+        // Pull the saved ids and order back into the editor.
         setImages(
           (updated.images ?? []).map((image) => ({ url: image.url ?? '', alt: image.alt ?? '' })),
         );
@@ -148,7 +144,7 @@ function ProductForm() {
       } else {
         const created = await productService.create(payload);
         toast.success(`"${created.name}" created.`);
-        // Jump into edit mode so variants can be added to the new product.
+        // Switch to edit mode so you can add variants right away.
         navigate(`/admin/products/${created.id}/edit`, { replace: true });
       }
     } catch (err) {

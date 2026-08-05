@@ -2,25 +2,24 @@ import prisma from '../config/prisma.js';
 import { config } from '../config/env.js';
 import { notFound } from '../utils/httpError.js';
 
-// Product service — the ONLY place products touch Prisma.
+// All the product logic. Nothing else touches Prisma for products.
 //
-// Decimal note: Prisma returns `basePrice` as a Decimal instance whose toJSON()
-// yields a string, so it serializes as "49.90" (never NaN), matching the contract.
+// About prices: Prisma gives us `basePrice` as a Decimal object, and its
+// toJSON() returns a string, so it goes out as "49.90" and never loses cents.
 
-// Products are always returned with their images and variants attached.
-// Images are ordered by id so every read returns the gallery in its stored
-// order — the first image is the product's primary one.
+// Products always come back with their images and variants. Images are ordered
+// by id, so the gallery keeps the order it was saved in and the first one is the
+// main image.
 const productInclude = { images: { orderBy: { id: 'asc' } }, variants: true };
 
-// Attach computed stock flags to a product and its variants. These are derived
-// in the service from the live `stock` value (never stored) so every product
-// read exposes the same low-stock / out-of-stock signal:
-//   - variant.isLowStock   — in stock but at or below the configured threshold
-//   - variant.isOutOfStock — stock is exactly 0
-//   - product.hasLowStock  — any variant is low stock
-//   - product.isOutOfStock — the product has variants and ALL of them are at 0
-// Spreading preserves the Decimal `price`/`basePrice` instances, so monetary
-// values still serialize as strings.
+// Adds the stock flags every product read exposes. We calculate them from the
+// live stock instead of storing them, so they can never go stale:
+//   variant.isLowStock   - still has stock, but at or below the threshold
+//   variant.isOutOfStock - stock is 0
+//   product.hasLowStock  - at least one variant is low
+//   product.isOutOfStock - it has variants and every one of them is at 0
+// Spreading keeps the Decimal price objects intact so they still serialize as
+// strings.
 function withStockFlags(product) {
   const variants = (product.variants ?? []).map((variant) => ({
     ...variant,
@@ -36,18 +35,15 @@ function withStockFlags(product) {
   };
 }
 
-// Single source of truth for the "public products must be active" rule.
-// Soft-deleted products (isActive=false) are hidden from the storefront.
-// Used both as a Prisma `where` fragment (list queries) and as a predicate
-// (single-record reads), so the rule lives in exactly one place.
+// "The storefront only shows active products", written once. One version for
+// queries, one for checking a record we already have.
 const publicVisibilityWhere = { isActive: true };
 function isPubliclyVisible(product) {
   return product.isActive === true;
 }
 
-// Business rule: only one product is featured at a time.
-// Clears isFeatured on every OTHER product. Must run inside the caller's
-// transaction (`tx`) so featuring and unfeaturing commit together.
+// Only one product can be featured at a time, so featuring one clears the rest.
+// Runs inside the caller's transaction so both changes commit together.
 async function unfeatureOthers(tx, productId) {
   await tx.product.updateMany({
     where: { id: { not: productId }, isFeatured: true },
@@ -55,7 +51,7 @@ async function unfeatureOthers(tx, productId) {
   });
 }
 
-// Return all products (admin listing — includes inactive ones).
+// Admin list — inactive products included.
 export async function getAllProducts() {
   const products = await prisma.product.findMany({
     include: productInclude,
@@ -64,10 +60,9 @@ export async function getAllProducts() {
   return products.map(withStockFlags);
 }
 
-// Public storefront: return featured products with their images and variants.
-// The "one featured at a time" rule means this is normally a single-item array,
-// but the contract shape is a list. Inactive products are excluded — a deactivated
-// product must never surface on the storefront even if still flagged as featured.
+// Storefront home. Usually one product because of the featured rule, but the
+// contract says list. Inactive products are filtered out — deactivating one has
+// to hide it even if it is still flagged as featured.
 export async function getFeaturedProducts() {
   const products = await prisma.product.findMany({
     where: { isFeatured: true, ...publicVisibilityWhere },
@@ -77,9 +72,8 @@ export async function getFeaturedProducts() {
   return products.map(withStockFlags);
 }
 
-// Public storefront: return a single product with its images and variants.
-// Throws 404 if it does not exist or has been soft-deleted (isActive=false),
-// so a deactivated product is indistinguishable from a missing one publicly.
+// Storefront product page. A deactivated product gives the same 404 as one that
+// never existed, so customers cannot tell the difference.
 export async function getProductById(id) {
   const product = await prisma.product.findUnique({
     where: { id },
@@ -89,8 +83,6 @@ export async function getProductById(id) {
   return withStockFlags(product);
 }
 
-// Create a product, optionally with inline images. If it is created as featured,
-// every other product is unfeatured in the same transaction.
 export async function createProduct(data) {
   const { images, ...productData } = data;
 
@@ -113,16 +105,12 @@ export async function createProduct(data) {
   return withStockFlags(product);
 }
 
-// Sync a product's gallery to match `images` exactly, inside the caller's
-// transaction (`tx`) so the product update and its gallery commit together.
+// Makes the gallery match `images` exactly.
 //
-// ProductImage has no position column (the schema is frozen), so the gallery
-// order IS the row creation order and the first row is the primary image. That
-// makes the sync order-sensitive:
-//   - when the incoming urls already match the stored ones in the same order,
-//     only the alt texts are refreshed and no row is churned;
-//   - otherwise the gallery is rebuilt in the requested order, which removes the
-//     images that are no longer present and creates the new ones in one pass.
+// ProductImage has no position column, so the order of the rows IS the gallery
+// order and the first row is the main image. That is why this cares about order:
+// if the urls already match one for one we only refresh the alt texts (no rows
+// are touched); otherwise we wipe the gallery and rebuild it in the order given.
 async function syncProductImages(tx, productId, images) {
   const existing = await tx.productImage.findMany({
     where: { productId },
@@ -147,16 +135,15 @@ async function syncProductImages(tx, productId, images) {
 
   await tx.productImage.deleteMany({ where: { productId } });
 
-  // Created one by one (not createMany) so the ids — and therefore the gallery
-  // order — follow the array order deterministically.
+  // One at a time instead of createMany, so the ids come out in array order and
+  // the gallery order is predictable.
   for (const image of images) {
     await tx.productImage.create({ data: { ...image, productId } });
   }
 }
 
-// Update the provided fields of a product. Throws 404 if it does not exist.
-// Featuring it unfeatures every other product in the same transaction.
-// When `images` is provided, the gallery is synced to match it exactly.
+// Updates only the fields that were sent. If `images` is included the gallery is
+// rewritten to match it.
 export async function updateProduct(id, data) {
   const { images, ...productData } = data;
 
@@ -184,10 +171,9 @@ export async function updateProduct(id, data) {
   return withStockFlags(product);
 }
 
-// Soft-delete a product: deactivate it instead of removing the row, so order
-// history that references it (OrderItem) is preserved. Clearing isFeatured keeps
-// a deactivated product out of the storefront's featured list. Throws 404 if it
-// does not exist.
+// Soft delete: we deactivate instead of deleting so old orders still point at a
+// real product. We also clear isFeatured, or a deactivated product would still
+// be the featured one.
 export async function deleteProduct(id) {
   const existing = await prisma.product.findUnique({ where: { id } });
   if (!existing) throw notFound('Product not found');

@@ -1,14 +1,11 @@
 import { useEffect } from 'react';
 
-/**
- * Selector for the elements that can receive focus inside an overlay. Kept in
- * one place so the modal and the mobile menu trap focus identically.
- */
+// What counts as focusable inside an overlay. In one place so the modal and the
+// mobile menu behave the same.
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Every focusable element currently inside `container`, in DOM order. */
 function focusableElements(container) {
   if (!container) return [];
   return Array.from(container.querySelectorAll(FOCUSABLE)).filter(
@@ -16,24 +13,14 @@ function focusableElements(container) {
   );
 }
 
-/**
- * Trap keyboard focus inside an overlay while it is open.
- *
- * While `active` is true this hook:
- *   - moves focus into the overlay (onto `initialFocusRef` when given, otherwise
- *     the first focusable element);
- *   - keeps Tab / Shift+Tab cycling inside it;
- *   - calls `onEscape` when Escape is pressed;
- *   - restores focus to whatever was focused before it opened (the trigger).
- *
- * Shared by <ConfirmModal> and <MobileMenu> so both behave the same way.
- *
- * @param {object} params
- * @param {boolean} params.active - whether the overlay is currently open
- * @param {React.RefObject<HTMLElement>} params.containerRef - the overlay element
- * @param {React.RefObject<HTMLElement>} [params.initialFocusRef] - element to focus first
- * @param {() => void} [params.onEscape] - called when Escape is pressed
- */
+// Keeps keyboard focus inside an overlay while it is open, which is what makes a
+// modal usable without a mouse. While `active` is true it:
+//   - moves focus into the overlay,
+//   - makes Tab and Shift+Tab wrap around inside it instead of escaping,
+//   - calls onEscape when you press Escape,
+//   - gives focus back to whatever opened it on the way out.
+//
+// Used by both <ConfirmModal> and <MobileMenu>.
 export function useFocusTrap({ active, containerRef, initialFocusRef, onEscape }) {
   useEffect(() => {
     if (!active) return undefined;
@@ -41,8 +28,8 @@ export function useFocusTrap({ active, containerRef, initialFocusRef, onEscape }
     const container = containerRef.current;
     const previouslyFocused = document.activeElement;
 
-    // Focus the safest control first (e.g. Cancel), falling back to the first
-    // focusable element, then the overlay itself.
+    // Prefer the safe button (Cancel), then the first focusable thing, then the
+    // overlay itself.
     const target = initialFocusRef?.current ?? focusableElements(container)[0] ?? container;
     target?.focus?.();
 
@@ -65,6 +52,7 @@ export function useFocusTrap({ active, containerRef, initialFocusRef, onEscape }
       const last = elements[elements.length - 1];
       const current = document.activeElement;
 
+      // Tabbing off either end sends you round to the other one.
       if (event.shiftKey && (current === first || !containerRef.current?.contains(current))) {
         event.preventDefault();
         last.focus();
@@ -78,8 +66,6 @@ export function useFocusTrap({ active, containerRef, initialFocusRef, onEscape }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
-      // Only restore focus if it is still inside (or has left) the overlay, so a
-      // deliberate focus move made while closing is not overridden.
       previouslyFocused?.focus?.();
     };
   }, [active, containerRef, initialFocusRef, onEscape]);

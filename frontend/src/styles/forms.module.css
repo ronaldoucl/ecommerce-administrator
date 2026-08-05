@@ -1,0 +1,76 @@
+/*
+ * Input styles, shared with `composes`.
+ *
+ * Every admin page and the checkout used to have its own near-identical copy of
+ * these rules. Now they live here once and change everywhere at the same time.
+ *
+ *   .control        - the normal field: block, full width
+ *   .controlCompact - the tighter one for fields inside table rows
+ *
+ * Both build on .controlBase, which has the colours and the focus/disabled
+ * states, so those cannot drift apart.
+ *
+ * WATCH OUT: the bundler puts this file AFTER the page CSS that composes from
+ * it. So if a page sets the same property with the same specificity, the rule
+ * here WINS and the page's is ignored. If a page needs to change something,
+ * either do not set it here (see .controlCompact, which has no width) or add a
+ * modifier further down this file (see .controlFlush).
+ */
+
+.controlBase {
+  font: inherit;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.controlBase:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.controlBase:disabled {
+  background-color: var(--color-bg);
+  cursor: not-allowed;
+}
+
+.control {
+  composes: controlBase;
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--font-weight-normal);
+  border-radius: var(--radius-md);
+}
+
+/* Sets no width on purpose: table columns size their fields individually. */
+.controlCompact {
+  composes: controlBase;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* Like .control but with no top margin, for layouts that space fields already. */
+.controlFlush {
+  composes: control;
+  margin-top: 0;
+}
+
+/* The label that wraps a field, caption on top. */
+.field {
+  display: block;
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Inline validation message shown under a control. */
+.fieldError {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-danger);
+}

@@ -2,31 +2,25 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { parsePrice } from '../utils/format';
 
-/**
- * CartContext — the client-side shopping cart for the storefront.
- *
- * The MVP has no cart API: the cart lives entirely on the client. It is shared
- * across the app through this context (so it survives navigation) and is also
- * mirrored to localStorage under "cart" so it survives a page reload.
- *
- * A cart item is:
- *   { productId, variantId, label, name, image, unitPrice, quantity }
- * where `unitPrice` is a number (the variant price when set, otherwise the
- * product base price) used only for client-side display and the subtotal.
- * A line is identified by its product + variant pair; `variantId` may be null
- * for a product without variants.
- */
+// The shopping cart. There is no cart API, so it lives entirely in the browser:
+// this context shares it across pages, and we copy it to localStorage so it
+// survives a reload.
+//
+// An item looks like:
+//   { productId, variantId, label, name, image, unitPrice, quantity }
+// A line is identified by product + variant together, and variantId can be null
+// for a product with no variants. unitPrice is only used for the subtotal we
+// show — the backend works out the real prices at checkout.
 const CartContext = createContext(null);
 
-/** localStorage key under which the cart is persisted. */
 const CART_STORAGE_KEY = 'cart';
 
-/** Two items are the same cart line when both product and variant match. */
+// Same product AND same variant means it is the same line.
 function isSameLine(a, b) {
   return a.productId === b.productId && a.variantId === b.variantId;
 }
 
-/** Read the persisted cart, tolerating missing/corrupt data or no localStorage. */
+// Reads the saved cart, shrugging off anything corrupt or missing.
 function readStoredCart() {
   if (typeof localStorage === 'undefined') return [];
 
@@ -42,25 +36,17 @@ function readStoredCart() {
 function CartProvider({ children }) {
   const [items, setItems] = useState(readStoredCart);
 
-  // Mirror the cart to localStorage on every change so it survives reloads.
   useEffect(() => {
     if (typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
     } catch {
-      // Ignore write failures (e.g. private mode / quota) — the in-memory cart
-      // still works for the session.
+      // Private mode or quota full. Not worth crashing over — the cart still
+      // works for this session, it just will not survive a reload.
     }
   }, [items]);
 
-  /**
-   * Add a product/variant to the cart. If the same line already exists its
-   * quantity is increased; otherwise a new line is appended.
-   *
-   * @param {{ productId: number, variantId: number|null, label: string|null,
-   *   name: string, image: string|null, unitPrice: number }} item
-   * @param {number} [quantity=1] - units to add (coerced to a positive integer)
-   */
+  // Adds to the existing line if the same product+variant is already there.
   const addItem = useCallback((item, quantity = 1) => {
     const qty = Math.max(1, Math.trunc(Number(quantity) || 1));
 
@@ -75,16 +61,13 @@ function CartProvider({ children }) {
     });
   }, []);
 
-  /** Remove a line entirely. */
   const removeItem = useCallback((productId, variantId) => {
     setItems((prev) =>
       prev.filter((line) => !isSameLine(line, { productId, variantId })),
     );
   }, []);
 
-  /**
-   * Set the quantity of a line. A quantity of 0 or less removes the line.
-   */
+  // Setting the quantity to 0 (or less) removes the line.
   const updateQuantity = useCallback((productId, variantId, quantity) => {
     const qty = Math.trunc(Number(quantity) || 0);
 
@@ -98,16 +81,14 @@ function CartProvider({ children }) {
     });
   }, []);
 
-  /** Empty the cart. */
   const clearCart = useCallback(() => setItems([]), []);
 
-  // Running totals derived from the items.
   const subtotal = useMemo(
     () =>
       items.reduce((sum, line) => {
         const unitPrice = parsePrice(line.unitPrice);
-        // Skip unparseable prices so a single bad value can't turn the whole
-        // subtotal into NaN on screen.
+        // Skip a bad price instead of adding it, or one broken line would turn
+        // the whole subtotal into NaN on screen.
         return Number.isFinite(unitPrice) ? sum + unitPrice * line.quantity : sum;
       }, 0),
     [items],
@@ -133,7 +114,6 @@ function CartProvider({ children }) {
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
-/** Access the cart. Must be used inside <CartProvider>. */
 function useCart() {
   const context = useContext(CartContext);
 

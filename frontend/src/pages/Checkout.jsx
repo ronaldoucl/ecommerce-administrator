@@ -9,8 +9,8 @@ import { checkoutService } from '../services';
 import { formatPrice, parsePrice } from '../utils/format';
 import styles from './Checkout.module.css';
 
-// Mirror the backend rules (checkout.validator.js) so invalid input is caught
-// client-side before any request is sent.
+// Same limits as checkout.validator.js on the backend, so we catch mistakes
+// before sending anything.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_MIN = 2;
 const NAME_MAX = 100;
@@ -21,12 +21,10 @@ const QTY_MAX = 99;
 
 const EMPTY_FORM = { customerName: '', customerEmail: '', shippingInfo: '' };
 
-/**
- * Collapse cart lines into the request body the backend expects: one entry per
- * variant with the summed quantity, carrying ONLY variantId and quantity. The
- * backend resolves and validates prices itself and rejects duplicate variantIds,
- * so prices are never sent and same-variant lines are merged here first.
- */
+// Turns the cart into what the API wants: one entry per variant with the
+// quantities added up, and only variantId + quantity. No prices — the backend
+// works those out. It also rejects duplicate variantIds, which is why we merge
+// them here first.
 function buildItemsPayload(items) {
   const byVariant = new Map();
 
@@ -38,11 +36,8 @@ function buildItemsPayload(items) {
   return Array.from(byVariant, ([variantId, quantity]) => ({ variantId, quantity }));
 }
 
-/**
- * Simulated checkout page. Shows an order summary built from CartContext and a
- * customer form, validates client-side, then submits the cart to POST
- * /api/checkout. There is no real payment step.
- */
+// Checkout page: order summary from the cart plus the customer form. It is
+// simulated — an order is created and stock goes down, but nobody is charged.
 function Checkout() {
   const { items, subtotal, itemCount, clearCart } = useCart();
   const { currency } = useSettings();
@@ -57,8 +52,8 @@ function Checkout() {
   const emailRef = useRef(null);
   const shippingRef = useRef(null);
 
-  // Any cart line with a quantity outside [1, 99] blocks checkout — the backend
-  // rejects it, so surface it before submitting.
+  // The backend rejects quantities outside 1-99, so we say so up front instead
+  // of letting the request fail.
   const hasInvalidQuantity = useMemo(
     () => items.some((line) => line.quantity < QTY_MIN || line.quantity > QTY_MAX),
     [items],
@@ -104,7 +99,7 @@ function Checkout() {
 
     setFieldErrors(errors);
 
-    // Focus the first invalid field so the user is taken straight to it.
+    // Jump to the first field with a problem.
     if (errors.customerName) nameRef.current?.focus();
     else if (errors.customerEmail) emailRef.current?.focus();
     else if (errors.shippingInfo) shippingRef.current?.focus();
@@ -115,9 +110,9 @@ function Checkout() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    // Hard re-entrancy guard: the disabled button already blocks a second click
-    // after re-render, but this ensures a rapid double-submit can never fire two
-    // requests (the backend has no idempotency key, so it would create two orders).
+    // Belt and braces against a double click. The button disables itself, but
+    // only after a re-render — and two requests here means two real orders,
+    // since there is no idempotency key on the backend.
     if (isSubmitting) return;
 
     setSubmitError('');
@@ -144,18 +139,19 @@ function Checkout() {
     try {
       const order = await checkoutService.submitCheckout(payload);
 
-      // Success (201): clear the cart, stash the order for a reload-safe
-      // confirmation page, then navigate carrying the order in router state too.
+      // Empty the cart and save the order twice: in sessionStorage so the
+      // confirmation page survives a refresh, and in router state for the
+      // normal navigation.
       clearCart();
       try {
         sessionStorage.setItem('last_order', JSON.stringify(order));
       } catch {
-        // Ignore storage failures (private mode / quota); router state still carries it.
+        // Private mode or full quota. Router state still has the order.
       }
       navigate(`/confirmation/${order.reference}`, { state: { order } });
     } catch (err) {
-      // 409 (insufficient stock), 400 and any other failure share this alert.
-      // The cart and form data are left intact so the user can fix and retry.
+      // Out of stock, validation error, anything: same alert. We leave the cart
+      // and the form exactly as they were so nothing has to be retyped.
       setSubmitError(err.message || 'Your order could not be placed. Please try again.');
       setIsSubmitting(false);
     }

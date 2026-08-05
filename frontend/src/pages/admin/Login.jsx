@@ -6,11 +6,8 @@ import Button from '../../components/Button/Button';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Login.module.css';
 
-/**
- * Admin login page. Submits the credentials through AuthContext, which stores
- * the JWT and hydrates the user; on success the admin area is opened, and a
- * rejected login (401) is shown inline using the normalized `{ message }`.
- */
+// Login page. AuthContext does the actual work (saving the token, loading the
+// user); we just collect the credentials and show the error if it is rejected.
 function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,10 +18,11 @@ function Login() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Where the visitor was heading before the guard sent them here.
+  // Where they were trying to go before we bounced them here.
   const redirectTo = location.state?.from?.pathname || '/admin';
 
-  // Restoring a session: wait instead of flashing the form to a signed-in user.
+  // Still checking the saved token — wait, or an already signed-in user sees the
+  // login form flash up for a moment.
   if (isLoading) {
     return <p role="status">Loading…</p>;
   }

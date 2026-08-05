@@ -12,16 +12,12 @@ import { allowedTransitions, isTerminalStatus, statusLabel } from '../../constan
 import { formatPrice, formatDate } from '../../utils/format';
 import styles from './OrderDetail.module.css';
 
-/**
- * Admin order detail. Shows the full order (customer, items, total, status) and
- * offers ONLY the status transitions the backend allows from the current status.
- * The displayed status is refreshed strictly from the update response, so a
- * rejected transition (409) never leaves an optimistic value that lies.
- *
- * Every transition goes through the shared confirm dialog and reports back with
- * a toast. Cancelling warns explicitly that the stock of every item is restored,
- * because that is what the backend does.
- */
+// Order detail page. Shows the whole order and offers only the status changes
+// the backend actually allows from where it is now.
+//
+// We never guess the new status optimistically — we show whatever the response
+// says. That way a rejected change (409) cannot leave a status on screen that
+// is not real.
 function OrderDetail() {
   const { id } = useParams();
   const confirm = useConfirm();
@@ -54,14 +50,8 @@ function OrderDetail() {
     load();
   }, [load]);
 
-  /**
-   * Confirm a status transition, apply it, then report the result.
-   *
-   * Cancelling is the only transition that restores stock, so it is the only
-   * one carrying that warning — and it uses the danger tone. On failure the
-   * dialog stays open with the backend message (e.g. a 409 illegal transition)
-   * and the displayed status is left exactly as it was.
-   */
+  // Ask, apply, report. Cancelling is the only change that puts stock back, so
+  // it is the only one that warns about it and the only one in the danger tone.
   const changeStatus = (target) => {
     const isCancel = target === 'cancelled';
 
@@ -84,7 +74,7 @@ function OrderDetail() {
         try {
           const updated = await orderService.updateOrderStatus(id, target);
 
-          // Refresh the displayed order strictly from the response.
+          // Take the new state from the response, not from what we asked for.
           setOrder(updated);
 
           const message = isCancel
@@ -94,9 +84,8 @@ function OrderDetail() {
           setSuccessMessage(message);
           notifyStatusChange(message, updated);
         } catch (err) {
-          // On 409 (or any failure) keep the previously displayed status
-          // untouched and surface the backend message — as an error toast and in
-          // the dialog, which stays open so the admin can retry or back out.
+          // On failure leave the status alone and show what the backend said.
+          // The dialog stays open so you can retry or back out.
           const message = err?.message || 'The status could not be updated.';
           setUpdateError(message);
           toast.error(message);
@@ -108,14 +97,9 @@ function OrderDetail() {
     });
   };
 
-  /**
-   * Report a successful status change.
-   *
-   * The status change itself ALWAYS commits — the customer notification email is
-   * attempted afterwards and can only be reported, never undo the change. So the
-   * outcome is split in two toasts: the success of the change, and a separate
-   * note when the customer could not be notified.
-   */
+  // Two separate toasts on purpose. The status change always sticks; the email
+  // is attempted afterwards and can fail on its own. Mixing them into one
+  // message would make a failed email look like a failed status change.
   const notifyStatusChange = (message, updated) => {
     if (updated.emailSent) {
       toast.success(`${message} Customer notified by email.`);
@@ -129,8 +113,8 @@ function OrderDetail() {
         `The status was updated, but the confirmation email could not be sent: ${updated.emailError}`,
       );
     } else {
-      // Email notifications are switched off in Settings — expected, not a
-      // failure, so it is only worth an informational note.
+      // Notifications are just switched off in Settings. Not a failure, so this
+      // is only an FYI.
       toast.info(
         'Email notifications are disabled — the customer was not notified. You can turn them on in Settings.',
       );

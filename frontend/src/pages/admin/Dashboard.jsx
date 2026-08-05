@@ -7,38 +7,28 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/format';
 import styles from './Dashboard.module.css';
 
-/** How many skeleton tiles to show while the first summary loads. */
+// Skeleton tiles shown while the first load happens.
 const TILE_COUNT = 5;
 
-/**
- * Admin dashboard overview.
- *
- * Renders the five MVP metrics from GET /api/analytics/summary as plain number
- * tiles — deliberately no charts, so there is no charting dependency and
- * nothing to break during a demo.
- *
- * Revenue arrives as a Decimal-safe STRING ("1499.88") and is rendered through
- * the shared price helper with the store currency from the settings, so it can
- * never surface as NaN and never hardcodes a currency symbol.
- */
+// The dashboard: five numbers from GET /api/analytics/summary, shown as plain
+// tiles. No charts on purpose — no chart library to pull in and nothing extra
+// that can break while presenting.
+//
+// Revenue arrives as a string ("1499.88") so the cents stay exact, and goes
+// through formatPrice with the store's currency instead of a hardcoded "$".
 function Dashboard() {
   const { currency } = useSettings();
 
   const [summary, setSummary] = useState(null);
-  // `isLoading` covers the very first fetch (skeleton); `isRefreshing` covers a
-  // manual re-pull, which keeps the current numbers on screen instead of
-  // flashing the skeleton again.
+  // Two flags: isLoading is the first load and shows the skeleton, isRefreshing
+  // is a manual refresh and keeps the current numbers on screen so the page does
+  // not flash back to placeholders.
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  /**
-   * Fetch the summary.
-   *
-   * @param {{ showSkeleton?: boolean }} [options] - `showSkeleton` swaps the
-   *   tiles for the loading placeholder (initial load and retry-after-error);
-   *   otherwise the current numbers stay on screen while they are re-pulled.
-   */
+  // showSkeleton: true on the first load and after an error, false for a manual
+  // refresh where we want to keep showing the old numbers.
   const load = useCallback(async ({ showSkeleton = false } = {}) => {
     if (showSkeleton) {
       setIsLoading(true);
@@ -51,8 +41,8 @@ function Dashboard() {
       const data = await analyticsService.getSummary();
       setSummary(data);
     } catch (err) {
-      // `status === null` means the request never reached the backend (server
-      // down, connection lost); axios only offers a bare "Network Error" there.
+      // status === null means the request never got there at all (server down).
+      // Axios only says "Network Error", which helps nobody.
       setError(
         err.status
           ? err.message || 'Unable to load the dashboard metrics.'
@@ -109,7 +99,7 @@ function Dashboard() {
   );
 }
 
-/** The five metric tiles, rendered from a loaded summary. */
+// The five tiles, once we have the data.
 function MetricTiles({ summary, currency, isStale }) {
   const bestSeller = summary.bestSellingProduct;
   const lowStock = summary.lowStock ?? { threshold: null, count: 0, items: [] };
@@ -196,7 +186,7 @@ function MetricTiles({ summary, currency, isStale }) {
   );
 }
 
-/** Placeholder tiles shown while the first summary is in flight. */
+// Grey placeholder tiles for the first load.
 function TileSkeleton() {
   return (
     <div className={styles.tiles} role="status" aria-label="Loading dashboard metrics">
@@ -212,6 +202,6 @@ function TileSkeleton() {
 }
 
 export default Dashboard;
-// Also exported by name so the presentational tiles can be rendered in
-// isolation (e.g. against a captured API payload) without a running backend.
+// Named export too, so the tiles can be rendered on their own with fake data,
+// without needing the backend running.
 export { MetricTiles, TileSkeleton };

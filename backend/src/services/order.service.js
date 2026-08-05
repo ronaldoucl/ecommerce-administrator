@@ -4,18 +4,14 @@ import { notFound } from '../utils/httpError.js';
 import { assertValidTransition } from '../validators/order.validator.js';
 import { sendOrderStatusEmail } from './emailService.js';
 
-// Order service — the ONLY place the admin order flow touches Prisma.
-//
-// Decimal note: unitPrice and totalAmount are Prisma.Decimal; lineTotal is computed
-// with Decimal arithmetic. They stay as Decimal so they serialize as strings ("99.80")
-// and are never converted to Number in the backend.
+// Admin order logic. Amounts stay as Prisma.Decimal so they serialize as strings
+// and keep their cents.
 
-// Include shape for the detail view: each item with its product and (optional) variant.
 const orderDetailInclude = {
   items: { include: { product: true, variant: true }, orderBy: { id: 'asc' } },
 };
 
-// Shape a full order (detail view) shared by GET /:id and PATCH /:id/status.
+// One shape for the order detail, used by both GET /:id and the status update.
 function shapeOrderDetail(order) {
   return {
     id: order.id,
@@ -38,9 +34,8 @@ function shapeOrderDetail(order) {
   };
 }
 
-// GET /api/orders — newest first, optional status filter, paginated.
-// Returns { data, page, pageSize, total }. Count and page are read together so
-// `total` is consistent with the returned slice.
+// Newest first, optional status filter, paged. The count and the page are read
+// in the same transaction so `total` always matches what we return.
 export async function listOrders({ status, page, pageSize }) {
   const where = status ? { status } : {};
 
@@ -69,7 +64,6 @@ export async function listOrders({ status, page, pageSize }) {
   return { data, page, pageSize, total };
 }
 
-// GET /api/orders/:id — one order with its item snapshots. Throws 404 if missing.
 export async function getOrderById(id) {
   const order = await prisma.order.findUnique({
     where: { id },
@@ -79,19 +73,16 @@ export async function getOrderById(id) {
   return shapeOrderDetail(order);
 }
 
-// PATCH /api/orders/:id/status — validate the transition and persist it. Cancelling
-// (transition INTO "cancelled") restores each line's quantity to its variant stock.
-// The status update and stock restoration run in ONE transaction so they cannot drift.
+// Changes the status, then tries to email the customer.
 //
-// AFTER the transaction has committed, the customer notification email is
-// attempted. It is deliberately outside the transaction and cannot fail the
-// request: the status change is already durable, so the outcome is only
-// REPORTED to the client as `emailSent` / `emailError`.
+// The email is sent AFTER the transaction on purpose. The status change is
+// already saved, so a failing email must not undo it — we just tell the client
+// what happened with emailSent / emailError.
 export async function updateOrderStatus(id, newStatus) {
   const order = await runStatusTransition(id, newStatus);
 
-  // sendOrderStatusEmail never throws; the extra guard keeps that guarantee
-  // local even if the implementation behind it changes.
+  // sendOrderStatusEmail promises never to throw; the try/catch keeps us safe
+  // even if that ever changes.
   let email = { sent: false, error: null };
   try {
     email = await sendOrderStatusEmail({ order, newStatus });
@@ -102,8 +93,8 @@ export async function updateOrderStatus(id, newStatus) {
   return { ...order, emailSent: Boolean(email.sent), emailError: email.error ?? null };
 }
 
-// The transactional part of the status change: guard, restore stock when
-// cancelling, persist, and return the updated order in the detail shape.
+// The database half: check the move is legal, put stock back if we are
+// cancelling, save. All in one transaction so they cannot get out of sync.
 async function runStatusTransition(id, newStatus) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -112,12 +103,12 @@ async function runStatusTransition(id, newStatus) {
     });
     if (!order) throw notFound('Order not found');
 
-    // Throws 409 on a no-op or disallowed transition, leaving everything unchanged.
+    // 409 if the move is not allowed (or is a no-op), and nothing changes.
     assertValidTransition(order.status, newStatus);
 
     if (newStatus === 'cancelled') {
-      // cancelled is terminal and the transition guard forbids re-entering it, so
-      // stock is restored exactly once. Line items without a variant are skipped.
+      // You cannot cancel twice (cancelled is terminal and the guard above
+      // blocks re-entering it), so stock goes back exactly once.
       for (const item of order.items) {
         if (item.variantId == null) continue;
         await tx.productVariant.update({

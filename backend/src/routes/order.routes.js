@@ -6,9 +6,8 @@ import {
 } from '../controllers/order.controller.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
-// Order routes: /api/orders/*
-//
-// All admin-only: requireAuth (the existing middleware) is applied to every route.
+// /api/orders/*
+// All admin only.
 const router = Router();
 
 router.get('/', requireAuth, listOrders);

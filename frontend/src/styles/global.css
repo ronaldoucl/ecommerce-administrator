@@ -1,7 +1,4 @@
-/*
- * Global base styles and light CSS reset.
- * Imports the design tokens and applies typography defaults derived from them.
- */
+/* A small reset plus the default typography, built on the theme tokens. */
 
 @import './theme.css';
 

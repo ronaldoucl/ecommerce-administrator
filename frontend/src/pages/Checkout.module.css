@@ -107,49 +107,20 @@
 }
 
 .field {
-  display: block;
-  margin-bottom: var(--space-4);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  composes: field from '../styles/forms.module.css';
 }
 
-.input,
-.textarea {
-  display: block;
-  width: 100%;
-  margin-top: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  font: inherit;
-  font-weight: var(--font-weight-normal);
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+.input {
+  composes: control from '../styles/forms.module.css';
 }
 
 .textarea {
+  composes: control from '../styles/forms.module.css';
   resize: vertical;
 }
 
-.input:focus,
-.textarea:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
-}
-
-.input:disabled,
-.textarea:disabled {
-  background-color: var(--color-bg);
-  cursor: not-allowed;
-}
-
 .fieldError {
-  display: block;
-  margin-top: var(--space-1);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-normal);
-  color: var(--color-danger);
+  composes: fieldError from '../styles/forms.module.css';
 }
 
 .alert {

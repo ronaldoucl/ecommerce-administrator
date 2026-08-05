@@ -12,18 +12,14 @@ const NAV_ITEMS = [
   { to: '/admin/settings', label: 'Settings' },
 ];
 
-/**
- * Layout for the authenticated admin area: a sidebar with section navigation,
- * the signed-in account with a logout control, and an outlet for the active
- * admin page. Used as the layout route wrapping the protected /admin/* pages.
- *
- * On narrow screens the sidebar is replaced by a top bar whose hamburger opens
- * the SAME accessible drawer the storefront uses (<MobileMenu>): focus trapped,
- * ESC / backdrop / link click all close it, focus returns to the button.
- *
- * The store branding (logo and primary colour) is applied here too, so the
- * admin shell matches the storefront it configures.
- */
+// The frame around every /admin page: sidebar with the section links, who is
+// signed in, a logout button, and the current page.
+//
+// On narrow screens the sidebar becomes a top bar and the hamburger opens the
+// same <MobileMenu> the storefront uses, so both behave identically.
+//
+// We apply the store branding here too, so the admin matches the shop it
+// configures.
 function AdminLayout() {
   const linkClass = ({ isActive }) => (isActive ? styles.linkActive : styles.link);
   const navigate = useNavigate();
@@ -35,8 +31,8 @@ function AdminLayout() {
     navigate('/admin/login', { replace: true });
   };
 
-  // The links and the account block are identical in the sidebar and in the
-  // drawer, so they are built once here and rendered in both places.
+  // Built once and rendered twice, in the sidebar and in the drawer, so the two
+  // can never end up showing different things.
   const navLinks = NAV_ITEMS.map(({ to, label }) => (
     <NavLink key={to} to={to} className={linkClass}>
       {label}

@@ -1,17 +1,16 @@
-// Validation for the admin order endpoints.
+// Checks for the admin order endpoints.
 //
-// The status list and the transition map are exported as constants so the frontend
-// team can mirror them. Same style as the Sprint 2 validators: dependency-free checks
-// that return normalized values or throw an HTTP error (see src/utils/httpError.js).
+// The status list and the transition map here are the source of truth. The
+// frontend keeps a copy by hand in src/constants/orderStatus.js, so if you
+// change something here, change it there too.
 
 import { badRequest, conflict, createHttpError } from '../utils/httpError.js';
 import { parseRouteId } from './id.validator.js';
 
-// The only statuses an order may hold. Order matters only for display.
-export const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'delivered', 'cancelled'];
+const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'delivered', 'cancelled'];
 
-// Allowed status transitions. `delivered` and `cancelled` are terminal (no exits).
-export const STATUS_TRANSITIONS = {
+// Which status can go where. delivered and cancelled are dead ends.
+const STATUS_TRANSITIONS = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['preparing', 'cancelled'],
   preparing: ['delivered', 'cancelled'],
@@ -21,10 +20,9 @@ export const STATUS_TRANSITIONS = {
 
 const MAX_PAGE_SIZE = 100;
 
-// Exact message required by the contract for an unknown status (no "Validation failed:" prefix).
+// The contract asks for this exact wording, with no "Validation failed:" prefix.
 const INVALID_STATUS_MESSAGE = `Invalid status. Allowed values: ${ORDER_STATUSES.join(', ')}`;
 
-// Route param :id — must be a positive integer within the int4 range.
 export function validateOrderId(value) {
   return parseRouteId(value);
 }
@@ -38,8 +36,7 @@ function parsePositiveIntParam(value, field, fallback) {
   return num;
 }
 
-// GET /api/orders query params: optional status filter, page (default 1),
-// pageSize (default 20, capped at 100).
+// Query params: optional status, page (default 1), pageSize (default 20, max 100).
 export function validateListQuery(query) {
   const source = query || {};
 
@@ -57,7 +54,6 @@ export function validateListQuery(query) {
   return { status, page, pageSize };
 }
 
-// PATCH body: { status } — must be one of ORDER_STATUSES.
 export function validateStatusUpdate(body) {
   if (!body || typeof body !== 'object' || !ORDER_STATUSES.includes(body.status)) {
     throw createHttpError(400, INVALID_STATUS_MESSAGE);
@@ -65,9 +61,8 @@ export function validateStatusUpdate(body) {
   return body.status;
 }
 
-// Enforce the transition map. A no-op (same status) and any disallowed transition
-// both reject with 409, changing nothing. Kept here so the rule lives in the validator,
-// not inline in the controller/service logic.
+// Applies the transition map. Setting the status it already has, or any move the
+// map does not allow, gives a 409 and changes nothing.
 export function assertValidTransition(from, to) {
   if (from === to) {
     throw conflict(`Order is already ${to}`);

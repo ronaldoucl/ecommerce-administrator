@@ -1,12 +1,6 @@
 import styles from './Card.module.css';
 
-/**
- * Reusable surface container used to group related content.
- *
- * @param {object} props
- * @param {string} [props.title] - Optional heading rendered at the top of the card.
- * @param {React.ReactNode} props.children - Card body content.
- */
+// A white panel to group related content, with an optional heading.
 function Card({ title, className = '', children, ...rest }) {
   const classes = [styles.card, className].filter(Boolean).join(' ');
 

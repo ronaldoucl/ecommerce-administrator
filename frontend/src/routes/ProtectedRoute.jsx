@@ -2,15 +2,13 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 
-/**
- * Guards admin routes that require authentication.
- *
- * While the stored session is being restored nothing is decided yet, so a
- * neutral placeholder is rendered — redirecting during that window would kick
- * an authenticated user out on every page refresh. Once resolved, visitors
- * without a session are sent to the login page, remembering where they were
- * heading so they can be returned there after signing in.
- */
+// Blocks the admin pages unless you are logged in.
+//
+// The isLoading check matters: while we are still verifying the saved token we
+// do not know yet, and redirecting during that moment would throw a logged-in
+// user out every single time they refresh the page.
+//
+// We remember where they were going so login can send them back there.
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();

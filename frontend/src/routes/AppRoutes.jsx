@@ -20,13 +20,11 @@ import Orders from '../pages/admin/Orders';
 import OrderDetail from '../pages/admin/OrderDetail';
 import Settings from '../pages/admin/Settings';
 
-/**
- * Central route configuration.
- *
- * Public routes are wrapped in the storefront Layout (header + footer).
- * Admin routes live under /admin: the login page is public, while the
- * remaining pages are wrapped in AdminLayout and guarded by ProtectedRoute.
- */
+// Every route in the app.
+//
+// Public pages sit inside Layout (header + footer). Admin pages live under
+// /admin: login is open to anyone, the rest go through ProtectedRoute and
+// AdminLayout.
 function AppRoutes() {
   return (
     <Routes>

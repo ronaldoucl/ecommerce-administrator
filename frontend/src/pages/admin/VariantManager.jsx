@@ -12,11 +12,7 @@ const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 
 const EMPTY_VARIANT = { label: '', price: '', stock: '0' };
 
-/**
- * Validate the shared variant fields. `label` is required; `price` is an
- * optional positive-decimal override; `stock` must be a non-negative integer.
- * Returns a map of field -> message (empty when valid).
- */
+// Used by both the add form and the inline edit. Returns { field: message }.
 function validateVariant({ label, price, stock }) {
   const errors = {};
 
@@ -35,8 +31,8 @@ function validateVariant({ label, price, stock }) {
   return errors;
 }
 
-// Build the request payload from the form fields: empty price clears the
-// override (null); stock is sent as a real number as the API requires.
+// An empty price means "no override", which the API wants as null. Stock has to
+// go as a real number, not a string.
 function toPayload({ label, price, stock }) {
   return {
     label: label.trim(),
@@ -45,12 +41,9 @@ function toPayload({ label, price, stock }) {
   };
 }
 
-/**
- * Manage a product's variants inline within the edit view: list them and
- * add / edit / delete, each persisting through the variant service. After any
- * mutation the variants are re-fetched from the product so the panel mirrors
- * the real API state. Every call has its own loading and error handling.
- */
+// The variants panel inside the product edit page: list, add, edit, delete.
+// After every change we re-read the product, so the table shows what the API
+// really has instead of what we assumed.
 function VariantManager({ productId, initialVariants }) {
   const confirm = useConfirm();
   const toast = useToast();
@@ -136,8 +129,8 @@ function VariantManager({ productId, initialVariants }) {
     setIsSavingEdit(true);
     try {
       await variantService.update(editingId, toPayload(editForm));
-      // Refresh first, then leave edit mode, so the row swaps straight to the
-      // saved values instead of briefly flashing the previous ones.
+      // Refresh BEFORE leaving edit mode, or the row flashes the old values for
+      // a moment before the new ones arrive.
       await reloadVariants();
       setEditingId(null);
     } catch (err) {

@@ -11,32 +11,24 @@ import { createPortal } from 'react-dom';
 
 import styles from './Toast.module.css';
 
-/**
- * Toast system — the app's single way of confirming an action or reporting a
- * failure without interrupting what the user is doing.
- *
- * Mounted once near the app root (see main.jsx); any screen raises a toast with
- * the `useToast()` hook:
- *
- *   const toast = useToast();
- *   toast.success('Product marked as featured');
- *   toast.error(message);
- *   toast.info('Nothing to update', { action: { label: 'Undo', onClick } });
- *
- * Behaviour: top-right stack, slide-in, auto-dismiss (errors linger longer),
- * manual close, pause-on-hover/focus, at most three visible at a time with the
- * rest queued. Raising a toast with an `id` that is already on screen REPLACES
- * it (and restarts its timer) instead of stacking a near-duplicate.
- *
- * No toast library is used — this is deliberately dependency-free.
- */
+// Little pop-up messages, so we can confirm something worked without blocking
+// the page. Mounted once in main.jsx, used anywhere with the useToast() hook:
+//
+//   const toast = useToast();
+//   toast.success('Product marked as featured');
+//   toast.error(message);
+//
+// They stack in the top-right, dismiss themselves, pause while you hover, and
+// show three at most (the rest wait their turn). Raising one with an id that is
+// already showing replaces it instead of stacking a near-duplicate.
+//
+// Written by hand rather than pulling in a toast library.
 const ToastContext = createContext(null);
 
-/** How long a toast stays on screen. Errors get longer, they matter more. */
+// Errors stay longer — they matter more.
 const DEFAULT_DURATION = 4000;
 const ERROR_DURATION = 6000;
 
-/** Toasts beyond this many are queued and shown as earlier ones dismiss. */
 const MAX_VISIBLE = 3;
 
 let nextToastId = 0;
@@ -59,8 +51,8 @@ function ToastProvider({ children }) {
       action,
       image,
       duration: duration ?? (variant === 'error' ? ERROR_DURATION : DEFAULT_DURATION),
-      // Bumped every time the same id is raised again, so the toast component
-      // knows to restart its dismiss timer even though it never unmounted.
+      // Goes up each time the same id is raised again. The toast never
+      // unmounts, so this is how it knows to restart its timer.
       seq: 0,
     };
 
@@ -95,10 +87,8 @@ function ToastProvider({ children }) {
   );
 }
 
-/**
- * The stack itself, rendered in a portal so it always sits above page content
- * regardless of the stacking context of whatever raised it.
- */
+// In a portal so it always draws on top, whatever the page it was raised from
+// is doing with z-index.
 function ToastContainer({ toasts, onDismiss }) {
   if (typeof document === 'undefined') return null;
 
@@ -107,8 +97,8 @@ function ToastContainer({ toasts, onDismiss }) {
   return createPortal(
     <div className={styles.container}>
       {/*
-        Two regions so success/info are announced politely while errors
-        interrupt — a single region can only carry one politeness setting.
+        Two regions on purpose: a screen reader should interrupt for an error
+        but wait its turn for a success, and one region can only do one of those.
       */}
       <div aria-live="polite" role="status" className={styles.region}>
         {visible
@@ -129,24 +119,21 @@ function ToastContainer({ toasts, onDismiss }) {
   );
 }
 
-/**
- * A single toast: optional thumbnail, message, optional action button and a
- * close button. Owns its own auto-dismiss timer, which pauses while the pointer
- * is over it or the keyboard focus is inside it, so it cannot vanish mid-read.
- */
+// One toast. It runs its own countdown, which pauses while you hover it or tab
+// into it — otherwise it could disappear halfway through reading it.
 function ToastItem({ toast, onDismiss }) {
   const remainingRef = useRef(toast.duration);
   const startedAtRef = useRef(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Declared BEFORE the timer effect so a re-raised toast has its full time back
-  // by the time the countdown below restarts.
+  // Has to come BEFORE the timer effect, so a re-raised toast already has its
+  // full time back when the countdown restarts.
   useEffect(() => {
     remainingRef.current = toast.duration;
   }, [toast.seq, toast.duration]);
 
-  // Runs the countdown. Re-raising the toast (`seq`) restarts it; pausing tears
-  // it down and resuming starts a new one with the time that was left.
+  // The countdown. Re-raising the toast restarts it; pausing kills the timer and
+  // resuming starts a fresh one with whatever time was left.
   useEffect(() => {
     if (isPaused) return undefined;
 

@@ -2,33 +2,26 @@ import prisma from '../config/prisma.js';
 import { config } from '../config/env.js';
 import { notFound } from '../utils/httpError.js';
 
-// Settings service — the ONLY place StoreSettings touches Prisma.
-//
-// StoreSettings is a single-row configuration table. The default row is created by
-// the seed (prisma/seed.js), so a configured store always has exactly one row.
+// StoreSettings is a one-row table. The seed creates that row, so a working
+// store always has exactly one.
 
-// Add the read-only `emailConfigured` flag to a settings row.
-//
-// `emailEnabled` is the admin's choice; `emailConfigured` says whether the server
-// actually has the Gmail credentials to honour it. The admin panel needs both to
-// explain why the switch cannot be turned on, so every response carries it.
+// Adds `emailConfigured`, which is read-only and comes from the environment,
+// not the database. `emailEnabled` is what the admin wants; `emailConfigured` is
+// whether the server can actually send. The admin panel needs both to explain
+// why the switch is greyed out.
 function withEmailConfigured(settings) {
   return { ...settings, emailConfigured: config.email.configured };
 }
 
-// Return the store configuration row. Throws 404 if the store has not been seeded.
 export async function getSettings() {
   const settings = await prisma.storeSettings.findFirst({ orderBy: { id: 'asc' } });
   if (!settings) throw notFound('Store settings not configured');
   return withEmailConfigured(settings);
 }
 
-// Update the store configuration and return the new values.
-//
-// The table holds exactly one row, so we update the existing one by its id instead
-// of creating a new one. On a fresh (unseeded) database no row exists yet — in that
-// case we create the first one, which keeps the endpoint safe without ever ending up
-// with a second row.
+// Updates the single row. If the database was never seeded there is no row yet,
+// so we create the first one — that way the endpoint works either way and we
+// still never end up with two.
 export async function updateSettings(data) {
   const existing = await prisma.storeSettings.findFirst({ orderBy: { id: 'asc' } });
 

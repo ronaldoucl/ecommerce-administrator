@@ -2,19 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { authService, AUTH_TOKEN_KEY } from '../services';
 
-/**
- * AuthContext holds the admin authentication state and exposes it to the app:
- *   - `user`, `token` and the derived `isAuthenticated` flag
- *   - `login(email, password)` / `logout()` actions
- *   - `isLoading`, true while the stored session is being restored on start
- *
- * The JWT is persisted in localStorage under the same key the axios instance
- * reads in its request interceptor, so a reload keeps the session alive.
- * ProtectedRoute consumes this context to guard the /admin area.
- */
+// Who is logged in, plus login/logout. ProtectedRoute uses this to guard /admin.
+//
+// The token is saved in localStorage under the same key api.js reads, so a
+// reload keeps you signed in.
 const AuthContext = createContext(null);
 
-/** Read the persisted token, tolerating environments without localStorage. */
 function readStoredToken() {
   return typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_TOKEN_KEY) : null;
 }
@@ -22,14 +15,12 @@ function readStoredToken() {
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => readStoredToken());
-  // Start in a loading state only when there is a token worth validating.
+  // Only show a loading state if there is actually a token to check.
   const [isLoading, setIsLoading] = useState(() => Boolean(readStoredToken()));
 
-  /**
-   * Restore the session on start: if a token is stored, ask the backend who it
-   * belongs to. An invalid or expired token is discarded so the user is sent
-   * back to the login page instead of hitting a half-authenticated state.
-   */
+  // On startup, ask the backend who the saved token belongs to. If it is expired
+  // or bogus we throw it away, so you land on the login page instead of a
+  // half-logged-in app.
   useEffect(() => {
     const storedToken = readStoredToken();
 
@@ -63,11 +54,7 @@ function AuthProvider({ children }) {
     };
   }, []);
 
-  /**
-   * Authenticate against the backend and persist the session.
-   * Rejects with the normalized `{ message }` error from the API layer so the
-   * caller can render it inline (e.g. 401 "Invalid credentials").
-   */
+  // Throws the API error straight through so the login page can show it.
   const login = useCallback(async (email, password) => {
     const { token: newToken, user: loggedUser } = await authService.login({ email, password });
 
@@ -78,7 +65,7 @@ function AuthProvider({ children }) {
     return loggedUser;
   }, []);
 
-  /** Clear the session locally (the JWT is stateless, nothing to revoke). */
+  // Just forget the token — a JWT is stateless, there is nothing to revoke.
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setToken(null);
@@ -100,7 +87,6 @@ function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/** Access the auth state. Must be used inside <AuthProvider>. */
 function useAuth() {
   const context = useContext(AuthContext);
 

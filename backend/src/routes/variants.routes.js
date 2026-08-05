@@ -2,10 +2,10 @@ import { Router } from 'express';
 import { updateVariant, deleteVariant } from '../controllers/variant.controller.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
-// Variant routes: /api/variants/*
+// /api/variants/*
 //
-// Creation lives on the products router (POST /api/products/:id/variants) because it
-// needs the parent product id. Update and delete address a variant directly by its id.
+// Creating a variant lives on the products router instead, because it needs the
+// product id in the URL. Update and delete only need the variant's own id.
 const router = Router();
 
 router.put('/:id', requireAuth, updateVariant);

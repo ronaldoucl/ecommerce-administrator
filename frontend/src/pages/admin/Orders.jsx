@@ -12,10 +12,8 @@ import styles from './Orders.module.css';
 
 const PAGE_SIZE = 10;
 
-/**
- * Admin orders list. Loads real orders from the API with a status filter and
- * pagination wired to the backend query params. Each row opens the detail view.
- */
+// Orders table. The status filter and the paging both map straight onto the
+// backend query params, so the server does the work. Click a row for details.
 function Orders() {
   const navigate = useNavigate();
   const { currency } = useSettings();

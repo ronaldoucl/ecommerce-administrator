@@ -3,44 +3,37 @@ import prisma from '../config/prisma.js';
 import { config } from '../config/env.js';
 import { getLowStockVariants } from './inventory.service.js';
 
-// Analytics service — the ONLY place the dashboard metrics touch Prisma.
+// The numbers behind the admin dashboard.
 //
-// Money rule: revenue is aggregated SQL-side and kept as a Prisma.Decimal end to end,
-// then serialized with toFixed(2). It is NEVER converted to a JS Number, because
-// floating point cannot represent decimal money exactly (0.1 + 0.2 !== 0.3).
+// Revenue is summed by the database and stays a Prisma.Decimal until we format
+// it. We never turn it into a JS number, because floats cannot hold decimal
+// money exactly (0.1 + 0.2 !== 0.3).
 //
-// Low stock is NOT reimplemented here: it reuses getLowStockVariants() from
-// inventory.service.js (S3-LUC-03), so both endpoints share one query and one
-// definition of "low stock".
+// Low stock is not rewritten here — we reuse getLowStockVariants() so both
+// endpoints agree on what "low stock" means.
 
-// CANCELLED-ORDER RULE — declared once and reused by every money/units metric.
-//
-// Cancelled orders restored their stock and represent no sale, so they must not
-// inflate simulatedRevenue or bestSellingProduct. totalOrders deliberately does NOT
-// use this filter: it counts every order regardless of status.
+// Cancelled orders gave their stock back and earned nothing, so they must not
+// count towards revenue or best seller. totalOrders is the exception: it counts
+// every order whatever its status.
 const CANCELLED_STATUS = 'cancelled';
-
-// Matches orders that count as a sale (applied to the Order model).
 const SALE_ORDER_FILTER = { status: { not: CANCELLED_STATUS } };
-
-// The same rule expressed for OrderItem, traversed through its parent order.
 const SALE_ORDER_ITEM_FILTER = { order: SALE_ORDER_FILTER };
 
-// Format a Decimal money value as a fixed 2-decimal string ("1499.88").
-// Accepts null, which is what Prisma returns for _sum over an empty set.
+// "1499.88". Handles null, which is what Prisma returns when there is nothing
+// to sum.
 function toMoneyString(value) {
   return new Prisma.Decimal(value ?? 0).toFixed(2);
 }
 
-// Highest total quantity sold per product, excluding cancelled orders.
-// Aggregated SQL-side with groupBy; only the single winning row is fetched (take: 1),
-// so order items are never loaded into memory. Returns null when there are no sales.
+// Product with the most units sold, cancelled orders excluded. groupBy does the
+// work in SQL and we only take the winner, so we never load order items into
+// memory. Null when nothing has sold yet.
 async function getBestSellingProduct() {
   const [top] = await prisma.orderItem.groupBy({
     by: ['productId'],
     where: SALE_ORDER_ITEM_FILTER,
     _sum: { quantity: true },
-    // productId ascending breaks ties deterministically, so repeated calls agree.
+    // The productId tiebreak keeps the answer stable between calls.
     orderBy: [{ _sum: { quantity: 'desc' } }, { productId: 'asc' }],
     take: 1,
   });
@@ -52,8 +45,8 @@ async function getBestSellingProduct() {
     select: { id: true, name: true },
   });
 
-  // The product is read for its name only; sales history still counts even if the
-  // product was since soft-deleted (isActive: false).
+  // We only want the name here. A product that was deactivated still keeps its
+  // sales history, which is why we do not filter by isActive.
   return {
     productId: top.productId,
     productName: product?.name ?? null,
@@ -61,8 +54,7 @@ async function getBestSellingProduct() {
   };
 }
 
-// GET /api/analytics/summary — the five MVP dashboard metrics.
-// Every count/sum is computed by the database; the queries run concurrently.
+// The five dashboard numbers. All five queries run at the same time.
 export async function getSummary() {
   const [totalOrders, revenue, pendingOrders, bestSellingProduct, lowStockItems] =
     await Promise.all([

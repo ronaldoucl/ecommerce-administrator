@@ -1,21 +1,15 @@
-// Validation for the image upload endpoint.
-//
-// Same style as the other validators: dependency-free checks that return a
-// NORMALIZED value for the service, or throw a 400 error (see src/utils/httpError.js).
-// Multer has already enforced the byte limit by the time this runs; these checks
-// cover what it cannot (the field being present, and the actual content type).
+// Checks the uploaded file. Multer has already enforced the size limit by the
+// time we run, so what is left is making sure the field is actually there and
+// the content type is one we want.
 
 import { badRequest } from '../utils/httpError.js';
 
-/** Maximum accepted size. Also enforced by multer, which rejects earlier. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-/**
- * Image formats the storefront can display. Deliberately an allowlist: an
- * unexpected type (SVG, PDF, HTML renamed to .jpg) is rejected rather than
- * uploaded and served back to shoppers.
- */
-export const ALLOWED_IMAGE_TYPES = [
+// An allowlist, not a blocklist: anything unexpected (an SVG, a PDF, an HTML
+// file renamed to .jpg) gets rejected instead of being hosted and served back
+// to shoppers.
+const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -23,12 +17,6 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/avif',
 ];
 
-/**
- * Validate the uploaded file and return what the service needs.
- *
- * @param {{ buffer: Buffer, mimetype: string, size: number, originalname: string }} [file]
- * @returns {{ buffer: Buffer, mimetype: string, originalName: string }}
- */
 export function validateImageUpload(file) {
   if (!file || !file.buffer) {
     throw badRequest('an image file is required in the "file" field');

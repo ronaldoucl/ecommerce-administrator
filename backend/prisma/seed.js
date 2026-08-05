@@ -2,9 +2,10 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/auth/password.js';
 
-// Idempotent seed. Creates the admin user (from ADMIN_EMAIL / ADMIN_PASSWORD) and the
-// single default StoreSettings row consumed by the public storefront.
-// Uses its own PrismaClient so the script can disconnect cleanly when finished.
+// Sets up a fresh database: the admin user, the default store settings and one
+// sample product. Safe to run more than once — nothing is duplicated.
+//
+// It makes its own PrismaClient so the script can disconnect and exit cleanly.
 const prisma = new PrismaClient();
 
 // Default store configuration used until an admin edits it via PUT /api/settings.
@@ -16,10 +17,11 @@ const DEFAULT_SETTINGS = {
   branding: '{"primaryColor":"#4F46E5"}',
 };
 
-// A realistic featured product used for frontend development. Images use stable,
-// seeded picsum.photos URLs so they actually load in the storefront. Variants cover
-// the interesting UI states: an inherited price (null -> falls back to basePrice), an
-// overridden price, and an out-of-stock variant (stock 0). Inventory lives on variants.
+// A sample product so the storefront is not empty on a fresh database.
+//
+// The images are fixed picsum.photos URLs, so they actually load. The variants
+// are picked to cover the interesting cases: one with no price of its own (falls
+// back to basePrice), one that overrides it, and one out of stock.
 const SAMPLE_PRODUCT = {
   name: 'Aurora Hoodie',
   description: 'Soft brushed-fleece hoodie with a relaxed unisex fit and kangaroo pocket.',
@@ -62,9 +64,9 @@ async function seedAdmin() {
   console.log(`Admin user seeded: ${admin.email} (id ${admin.id})`);
 }
 
-// StoreSettings is a single-row table with no natural unique key, so upsert cannot be
-// used. Create the default row only when the table is empty; leave any existing
-// configuration untouched, which keeps the seed idempotent and non-destructive.
+// We cannot upsert here: StoreSettings has one row and no unique column to match
+// on. So we only create it when the table is empty, and never touch an existing
+// configuration — re-running the seed must not wipe someone's settings.
 async function seedSettings() {
   const existing = await prisma.storeSettings.findFirst();
   if (existing) {
@@ -76,9 +78,9 @@ async function seedSettings() {
   console.log(`Default store settings seeded: "${settings.storeName}" (id ${settings.id})`);
 }
 
-// Create the sample featured product (with images and variants) for frontend work.
-// Idempotent: guarded on the product name, so re-running the seed does not create
-// duplicates. Product has no natural unique key, hence the findFirst guard.
+// Same problem as the settings: a product has no unique column, so we look it up
+// by name first instead of upserting. That is what stops a second run creating a
+// duplicate product.
 async function seedSampleProduct() {
   const existing = await prisma.product.findFirst({ where: { name: SAMPLE_PRODUCT.name } });
   if (existing) {

@@ -4,7 +4,7 @@
 # ROOT (Render only auto-detects render.yaml at the repo root). Since it currently
 # lives in /backend, either:
 #   (a) copy it to the repo root, or
-#   (b) ignore this file and deploy via the Render dashboard (see DEPLOY.md),
+#   (b) ignore this file and deploy via the Render dashboard (see docs/DEPLOY.md),
 #       setting "Root Directory" to `backend`.
 #
 # PORT is injected automatically by Render — do NOT set it here.

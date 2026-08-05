@@ -37,28 +37,15 @@
   opacity: 0.6;
 }
 
+/* Shares the field look, but flexes beside the swatch instead of filling the row. */
 .hexInput {
+  composes: controlBase from '../../styles/forms.module.css';
   flex: 1 1 8rem;
   min-width: 7rem;
   padding: var(--space-2) var(--space-3);
-  font: inherit;
   font-weight: var(--font-weight-normal);
   text-transform: uppercase;
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-}
-
-.hexInput:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
-}
-
-.hexInput:disabled {
-  background-color: var(--color-bg);
-  cursor: not-allowed;
 }
 
 .error {
@@ -68,9 +55,10 @@
 }
 
 /*
- * Live preview of where the colour lands on the storefront. Text colours are
- * intentionally left to the surface defaults (white on the accent, the accent
- * on white) so an unusual brand colour never produces unreadable copy here.
+ * Live preview of where the colour lands on the storefront. It consumes the
+ * brand tokens (--color-primary, --color-text-inverse, --color-primary-ink) that
+ * brandStyle sets on the wrapper, so the preview reflects the readable pairings
+ * the storefront will actually render.
  */
 .preview {
   overflow: hidden;
@@ -86,7 +74,7 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-inverse);
-  background-color: var(--preview-color);
+  background-color: var(--color-primary);
 }
 
 .previewDot {
@@ -111,11 +99,11 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-inverse);
-  background-color: var(--preview-color);
+  background-color: var(--color-primary);
 }
 
 .previewLink {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--preview-color);
+  color: var(--color-primary-ink);
 }

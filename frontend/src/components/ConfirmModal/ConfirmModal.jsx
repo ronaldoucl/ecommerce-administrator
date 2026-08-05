@@ -5,30 +5,12 @@ import Button from '../Button/Button';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import styles from './ConfirmModal.module.css';
 
-/**
- * Reusable confirmation dialog — the app's replacement for window.confirm.
- *
- * Accessible by construction: role="dialog" + aria-modal, labelled by its own
- * title, focus trapped inside while open, focus starting on the SAFEST button
- * (Cancel), Escape and backdrop click both cancelling, and focus returned to
- * the trigger on close (see useFocusTrap).
- *
- * It is usually driven through `useConfirm()` (see ConfirmProvider) rather than
- * rendered by hand, so every screen gets the same behaviour.
- *
- * @param {object} props
- * @param {boolean} props.open - whether the dialog is visible
- * @param {string} props.title - dialog heading, also its accessible name
- * @param {React.ReactNode} [props.message] - body copy
- * @param {React.ReactNode} [props.warning] - highlighted consequence line
- * @param {string} [props.confirmLabel='Confirm']
- * @param {string} [props.cancelLabel='Cancel']
- * @param {'default'|'danger'} [props.tone='default'] - danger styles the confirm button
- * @param {boolean} [props.isLoading=false] - disables both buttons and shows a spinner
- * @param {string} [props.error] - failure message kept in the dialog
- * @param {() => void} props.onConfirm
- * @param {() => void} props.onCancel
- */
+// The confirmation dialog itself. You normally do not render this by hand — use
+// useConfirm() from ConfirmProvider so every screen behaves the same.
+//
+// Accessibility is built in: it is a real dialog, labelled by its title, focus
+// is trapped while it is open and starts on the SAFE button (Cancel), Escape and
+// the backdrop both cancel, and focus goes back to whatever opened it.
 function ConfirmModal({
   open,
   title,

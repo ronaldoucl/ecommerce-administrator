@@ -6,12 +6,9 @@ import { useSettings } from '../context/SettingsContext';
 import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './Cart.module.css';
 
-/**
- * Shopping cart page. Lists the items held in CartContext with a quantity
- * control and remove action per line, plus the running subtotal. Falls back to
- * an empty-cart state. Checkout itself is a Sprint 3 concern — this page only
- * links to it and performs no API call.
- */
+// The cart page: every line with a quantity control and a remove button, plus
+// the subtotal. Makes no API calls at all — everything is in CartContext, and
+// this page just links on to checkout.
 function Cart() {
   const { items, subtotal, itemCount, updateQuantity, removeItem, clearCart } = useCart();
   const { currency } = useSettings();

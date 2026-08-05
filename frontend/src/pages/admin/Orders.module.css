@@ -20,20 +20,12 @@
   color: var(--color-text-muted);
 }
 
+/* Status filter: sits inline in the toolbar, so it keeps its intrinsic width. */
 .select {
-  font: inherit;
+  composes: controlBase from '../../styles/forms.module.css';
   padding: var(--space-2) var(--space-3);
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-}
-
-.select:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
 }
 
 .error {
@@ -78,27 +70,17 @@
 
 /* Table: controlled horizontal scroll on narrow screens, never a broken layout. */
 .tableWrap {
-  overflow-x: auto;
+  composes: tableWrap from '../../styles/tables.module.css';
 }
 
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
+  composes: table from '../../styles/tables.module.css';
 }
 
+/* Order rows stay on one line; the wrapper scrolls instead of wrapping cells. */
 .table th,
 .table td {
-  padding: var(--space-3);
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  vertical-align: middle;
   white-space: nowrap;
-}
-
-.table th {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
 }
 
 .reference {

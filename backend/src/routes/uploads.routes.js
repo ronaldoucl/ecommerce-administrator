@@ -3,10 +3,10 @@ import { uploadImage } from '../controllers/upload.controller.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { uploadSingleImage } from '../middleware/uploadFile.js';
 
-// Upload routes: /api/uploads
+// /api/uploads
 //
-// Admin-only: requireAuth runs BEFORE the multipart parser, so an unauthenticated
-// request is rejected without the server ever reading the uploaded bytes.
+// Admin only, and requireAuth runs BEFORE the file parser on purpose — a
+// stranger's upload is rejected before we read a single byte of it.
 const router = Router();
 
 router.post('/image', requireAuth, uploadSingleImage, uploadImage);

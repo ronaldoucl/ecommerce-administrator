@@ -1,20 +1,16 @@
-// Validation for product payloads.
-//
-// Each validator returns a NORMALIZED object ready to hand to the service layer,
-// or throws a 400 error (see src/utils/httpError.js) describing the first problem
-// it finds. No validation library — plain checks only.
+// Checks product payloads and returns a clean object for the service, or throws
+// a 400 with the first problem found.
 
 import { badRequest } from '../utils/httpError.js';
 import { parseRouteId } from './id.validator.js';
 
-// Numeric strings we accept for Decimal fields: "49", "49.90". Deliberately strict,
-// so exotic literals ("0x10", "1e5", "Infinity") are rejected instead of silently
-// coerced by Number() into something the DB would choke on.
+// What we accept for money: "49" or "49.90". Strict on purpose — without this,
+// Number() would happily swallow "0x10", "1e5" or "Infinity" and hand the
+// database something it cannot store.
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 
-// Parse a Decimal input. Accepts a number or a numeric string and returns a value
-// Prisma can store as Decimal, preserving the caller's precision. Guarantees the
-// result is a positive, finite value — never NaN.
+// Takes a number or a numeric string and returns something Prisma can store as
+// Decimal. Always positive and finite, never NaN.
 function parseBasePrice(value) {
   if (typeof value === 'number') {
     if (!Number.isFinite(value) || value <= 0) {
@@ -28,14 +24,13 @@ function parseBasePrice(value) {
     if (!DECIMAL_PATTERN.test(trimmed) || Number(trimmed) <= 0) {
       throw badRequest('basePrice must be a positive number');
     }
-    // Keep the string form so trailing decimals ("49.90") survive as-is.
+    // Keep it as a string so "49.90" does not become 49.9.
     return trimmed;
   }
 
   throw badRequest('basePrice must be a positive number');
 }
 
-// Require a non-empty string and return it trimmed.
 function parseRequiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw badRequest(`${field} is required`);
@@ -43,7 +38,7 @@ function parseRequiredString(value, field) {
   return value.trim();
 }
 
-// Optional free-text field: a string, or null to clear it.
+// Optional text: a string, or null to clear it.
 function parseOptionalString(value, field) {
   if (value === null) return null;
   if (typeof value !== 'string') {
@@ -59,19 +54,18 @@ function parseBoolean(value, field) {
   return value;
 }
 
-// Image URLs must be absolute http(s) links (real file upload is not supported —
-// the admin pastes URLs), short enough to stay sane in the database and in the UI.
+// We store image URLs, not files. The admin can paste one or upload a file, but
+// an upload just becomes a hosted URL before it reaches here.
 const IMAGE_URL_PATTERN = /^https?:\/\/\S+$/i;
 const IMAGE_URL_MAX = 2048;
 const IMAGE_ALT_MAX = 200;
 const MAX_IMAGES = 10;
 
-// Ordered gallery for a product: [{ url, alt? }, ...].
+// The gallery: [{ url, alt? }, ...].
 //
-// ORDER IS MEANINGFUL: the array is stored in this exact order and the FIRST
-// entry is the product's primary image. ProductImage has no position column
-// (the schema is frozen), so the service relies on creation order instead.
-// An empty array is allowed and simply clears the gallery.
+// The order matters — it is saved as given and the FIRST image is the main one.
+// ProductImage has no position column, so row order is all we have. An empty
+// array is fine and just clears the gallery.
 function parseImages(value) {
   if (!Array.isArray(value)) {
     throw badRequest('images must be an array');
@@ -102,7 +96,7 @@ function parseImages(value) {
   });
 }
 
-// POST /api/products — name, description and basePrice are required.
+// Create: name, description and basePrice are required.
 export function validateCreateProduct(body) {
   if (!body || typeof body !== 'object') {
     throw badRequest('request body is required');
@@ -122,8 +116,8 @@ export function validateCreateProduct(body) {
   return data;
 }
 
-// PUT /api/products/:id — every field is optional, but at least one must be present.
-// Only the provided fields end up in the returned patch.
+// Update: everything is optional, but send at least one field. Only what you
+// send comes back, so only that gets written.
 export function validateUpdateProduct(body) {
   if (!body || typeof body !== 'object') {
     throw badRequest('request body is required');
@@ -148,7 +142,6 @@ export function validateUpdateProduct(body) {
   return data;
 }
 
-// Route param :id — must be a positive integer within the int4 range.
 export function validateProductId(value) {
   return parseRouteId(value);
 }

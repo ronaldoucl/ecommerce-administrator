@@ -10,16 +10,11 @@ import { useSettings } from '../context/SettingsContext';
 import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
 import styles from './ProductDetail.module.css';
 
-/**
- * Public product detail page. Loads the product from GET /api/products/:id and
- * renders the multi-angle image gallery, description, benefits, price and a
- * variant selector. Picking a variant updates the displayed price (the
- * variant's own price when set, otherwise the product base price) and shows its
- * stock.
- *
- * Adding to the cart never interrupts browsing: it raises a toast carrying the
- * product thumbnail and a "View cart" action instead of navigating away.
- */
+// The product page: gallery, description, benefits, price and the variant
+// picker. Choosing a variant updates the price and the stock shown.
+//
+// Adding to the cart does NOT navigate away — you get a toast with a thumbnail
+// and a "View cart" link, so you can keep browsing.
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -42,7 +37,8 @@ function ProductDetail() {
     try {
       const data = await productService.getById(id);
       setProduct(data);
-      // Default to the first variant so a price and stock are shown immediately.
+      // Pick the first variant automatically, so there is a price on screen
+      // straight away instead of a blank.
       setSelectedVariantId(data.variants?.[0]?.id ?? null);
     } catch (err) {
       if (err.status === 404) {
@@ -64,7 +60,7 @@ function ProductDetail() {
 
     const variant = product.variants?.find((v) => v.id === selectedVariantId) ?? null;
     const quantity = 1;
-    // The gallery's first image is the product's primary one.
+    // The first image is the main one.
     const thumbnail = product.images?.[0]?.url ?? null;
 
     addItem(
@@ -74,8 +70,8 @@ function ProductDetail() {
         label: variant?.label ?? null,
         name: product.name,
         image: thumbnail,
-        // The variant price overrides the base price; a null override falls back.
-        // Parse the raw Decimal string through the shared helper before storing.
+        // Variant price wins; null means fall back to the product price. Run it
+        // through parsePrice first, since it arrives as a string.
         unitPrice: parsePrice(variant?.price ?? product.basePrice),
       },
       quantity,
@@ -83,8 +79,8 @@ function ProductDetail() {
 
     const name = variant?.label ? `${product.name} — ${variant.label}` : product.name;
 
-    // A stable id per product/variant line: adding the same item again replaces
-    // the toast already on screen instead of stacking near-identical ones.
+    // Same id for the same product+variant, so adding it twice replaces the
+    // toast instead of stacking two almost identical ones.
     toast.success(`${name} × ${quantity} added to cart`, {
       id: `cart:${product.id}:${variant?.id ?? 'base'}`,
       image: thumbnail ?? placeholderImage(product.name),

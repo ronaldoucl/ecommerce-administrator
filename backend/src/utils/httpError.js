@@ -1,15 +1,10 @@
-// Dependency-free helpers to build HTTP errors.
-//
-// Every error created here carries a `status`, which the centralized errorHandler
-// (src/middleware/errorHandler.js) turns into the shared { "message": ... } shape.
-// Services and validators throw these; controllers just forward them via next(err).
+// Small helpers for throwing errors with an HTTP status attached. Services and
+// validators throw these; errorHandler turns them into { "message": ... }.
 
-// Build an Error carrying an HTTP status code.
-//
-// `expose` tells the error handler whether the message is safe to send to the client.
-// It defaults to true for 4xx (those messages are written for the caller) and false
-// for 5xx (those are internal and get masked). Pass `{ expose: true }` on a 5xx only
-// when the message is deliberately caller-facing AND documented in API_CONTRACT.md.
+// `expose` says whether the message is safe to show the client. 4xx messages are
+// written for them so it defaults to true; 5xx messages are internal so it
+// defaults to false. Only pass { expose: true } on a 5xx if the message is meant
+// for the client AND is in docs/API_CONTRACT.md.
 export function createHttpError(status, message, { expose = status < 500 } = {}) {
   const error = new Error(message);
   error.status = status;
@@ -17,19 +12,18 @@ export function createHttpError(status, message, { expose = status < 500 } = {})
   return error;
 }
 
-// 400 — invalid input. The API contract prefixes validation messages,
-// e.g. "Validation failed: basePrice must be a positive number".
+// 400. The contract wants validation messages prefixed, e.g.
+// "Validation failed: basePrice must be a positive number".
 export function badRequest(reason) {
   return createHttpError(400, `Validation failed: ${reason}`);
 }
 
-// 404 — the requested resource does not exist.
 export function notFound(message) {
   return createHttpError(404, message);
 }
 
-// 409 — the request conflicts with the current state of the resource
-// (e.g. deleting a variant that already belongs to an order).
+// 409 — the request clashes with the current state, like deleting a variant that
+// an order already points at.
 export function conflict(message) {
   return createHttpError(409, message);
 }

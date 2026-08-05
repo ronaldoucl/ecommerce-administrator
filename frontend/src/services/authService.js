@@ -1,27 +1,13 @@
 import api from './api';
 
-/**
- * Authentication service. Wraps the `/auth` endpoints from the API contract.
- */
 const authService = {
-  /**
-   * Authenticate an admin user.
-   * POST /api/auth/login (public)
-   *
-   * @param {{ email: string, password: string }} credentials
-   * @returns {Promise<{ token: string, user: { id: number, email: string, role: string } }>}
-   */
+  // POST /api/auth/login — returns { token, user }.
   async login(credentials) {
     const { data } = await api.post('/auth/login', credentials);
     return data;
   },
 
-  /**
-   * Return the currently authenticated user.
-   * GET /api/auth/me (protected)
-   *
-   * @returns {Promise<{ id: number, email: string, role: string, createdAt: string }>}
-   */
+  // GET /api/auth/me — used on page load to check the saved token is still good.
   async me() {
     const { data } = await api.get('/auth/me');
     return data;

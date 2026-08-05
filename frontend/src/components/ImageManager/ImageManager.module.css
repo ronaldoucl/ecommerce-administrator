@@ -95,28 +95,10 @@
   color: var(--color-text-muted);
 }
 
+/* Rows are already spaced by the grid, so the control drops the stacked margin. */
 .input {
-  display: block;
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  font: inherit;
+  composes: controlFlush from '../../styles/forms.module.css';
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-normal);
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
-}
-
-.input:disabled {
-  background-color: var(--color-bg);
-  cursor: not-allowed;
 }
 
 .error {

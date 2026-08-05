@@ -2,10 +2,8 @@ import { Router } from 'express';
 import { getSummary } from '../controllers/analyticsController.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
-// Analytics routes: /api/analytics/*
-//
-// Admin-only: the dashboard metrics expose revenue and order volume, so the
-// endpoint is guarded by the existing requireAuth middleware.
+// /api/analytics/*
+// Admin only — these numbers give away revenue and order volume.
 const router = Router();
 
 router.get('/summary', requireAuth, getSummary);

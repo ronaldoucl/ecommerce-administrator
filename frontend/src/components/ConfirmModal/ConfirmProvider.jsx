@@ -2,31 +2,22 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 
 import ConfirmModal from './ConfirmModal';
 
-/**
- * Confirmation flow shared by every screen — the app's replacement for
- * window.confirm, mounted once near the app root (see main.jsx).
- *
- *   const confirm = useConfirm();
- *
- *   confirm({
- *     title: 'Delete product?',
- *     message: 'The product is deactivated and hidden from the storefront.',
- *     warning: 'Existing orders keep referencing it.',
- *     confirmLabel: 'Delete product',
- *     tone: 'danger',
- *     onConfirm: () => productService.remove(product.id),
- *   });
- *
- * The provider owns the whole lifecycle: while `onConfirm` runs the dialog shows
- * its loading state with both buttons disabled; on success it closes and the
- * returned promise resolves to `true`; on failure the dialog STAYS OPEN with the
- * backend `{ message }` shown inside, so the user can retry or back out.
- * Cancelling resolves to `false`.
- *
- * @typedef {{ title: string, message?: React.ReactNode, warning?: React.ReactNode,
- *   confirmLabel?: string, cancelLabel?: string, tone?: 'default'|'danger',
- *   onConfirm?: () => (void|Promise<void>) }} ConfirmOptions
- */
+// Our replacement for window.confirm. Mounted once in main.jsx and used like:
+//
+//   const confirm = useConfirm();
+//   confirm({
+//     title: 'Delete product?',
+//     message: 'The product is deactivated and hidden from the storefront.',
+//     confirmLabel: 'Delete product',
+//     tone: 'danger',
+//     onConfirm: () => productService.remove(product.id),
+//   });
+//
+// The provider runs the whole thing: while onConfirm is working the dialog shows
+// a loading state with both buttons disabled. If it succeeds the dialog closes
+// and the promise gives you true. If it FAILS the dialog stays open with the
+// error inside, so you can try again instead of losing what you were doing.
+// Cancelling gives you false.
 const ConfirmContext = createContext(null);
 
 const CLOSED = { open: false, options: null };
@@ -111,12 +102,7 @@ function ConfirmProvider({ children }) {
   );
 }
 
-/**
- * Ask for confirmation before running an action.
- * Must be used inside <ConfirmProvider>.
- *
- * @returns {(options: ConfirmOptions) => Promise<boolean>}
- */
+// Returns a confirm() that resolves to true or false.
 function useConfirm() {
   const context = useContext(ConfirmContext);
 

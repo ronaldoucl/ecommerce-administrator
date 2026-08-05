@@ -10,4 +10,3 @@ export { default as checkoutService } from './checkoutService';
 export { default as settingsService } from './settingsService';
 export { default as uploadService } from './uploadService';
 export { default as analyticsService } from './analyticsService';
-export { default as healthService } from './healthService';

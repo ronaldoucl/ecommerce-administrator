@@ -1,9 +1,7 @@
 import AppRoutes from './routes/AppRoutes';
 
-/**
- * Application root. Rendering of the actual routes is delegated to AppRoutes;
- * the router provider is set up in main.jsx.
- */
+// Root component. The routes are in AppRoutes and the providers in main.jsx, so
+// there is not much to see here.
 function App() {
   return <AppRoutes />;
 }

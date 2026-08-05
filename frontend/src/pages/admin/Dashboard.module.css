@@ -38,7 +38,7 @@
   min-width: 0; /* let long product names wrap instead of widening the column */
 }
 
-/* A subtle accent bar to lift the headline metric, using existing tokens only. */
+/* Small accent bar so the main metric stands out a bit. */
 .tileAccent {
   border-top: 3px solid var(--color-primary);
 }
@@ -57,7 +57,7 @@
   overflow-wrap: anywhere; /* a long formatted amount must not overflow the card */
 }
 
-/* Same slot as .tileValue, but for a short sentence rather than a number. */
+/* Same spot as .tileValue, but for a sentence instead of a number. */
 .tileEmptyValue {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
@@ -76,8 +76,8 @@
   overflow-wrap: anywhere;
 }
 
-/* Dim the tiles while a manual refresh is in flight, so the demo shows that
-   something is happening without the numbers disappearing. */
+/* Fade the tiles while refreshing, so you can tell something is happening
+   without the numbers vanishing. */
 .tilesStale {
   opacity: 0.6;
   transition: opacity 0.15s ease;

@@ -7,28 +7,19 @@ import { useSettings } from '../../context/SettingsContext';
 import { brandStyle } from '../../utils/branding';
 import styles from './Layout.module.css';
 
-/** Storefront navigation, shared by the desktop bar and the mobile drawer. */
-const NAV_ITEMS = [
-  { to: '/', label: 'Home', end: true },
-  { to: '/cart', label: 'Cart' },
-];
+// Shared by the desktop bar and the mobile drawer, so they never drift apart.
+const NAV_ITEMS = [{ to: '/', label: 'Home', end: true }];
 
-/**
- * Public storefront shell: a header (logo + store name + navigation + cart
- * access) and a footer (contact info) wrapped around the routed page content.
- * The base theme is applied globally, so any page rendered inside this Layout
- * inherits the palette and typography.
- *
- * Store name, contact info and branding come from the store settings
- * (GET /api/settings via SettingsContext), so an admin change is reflected here
- * on the next load. Branding carries a logo URL and/or a primary colour: the
- * colour is applied as a local CSS variable override (see brandStyle), so it
- * recolours every component inside the shell without touching the global theme.
- *
- * Below the header breakpoint the navigation collapses into the shared
- * <MobileMenu> hamburger; the cart button stays visible so it is always one tap
- * away.
- */
+// The storefront frame: header with the logo, store name, nav and cart, footer
+// with the contact details, and the current page in between.
+//
+// The name, contact info and branding all come from the store settings, so an
+// admin change shows up here on the next load. The brand colour is applied as
+// CSS variables on the wrapper (see brandStyle), which repaints everything
+// inside without touching the global theme.
+//
+// On narrow screens the nav collapses into the hamburger, but the cart button
+// stays put — it should always be one tap away.
 function Layout() {
   const currentYear = new Date().getFullYear();
 
@@ -37,8 +28,8 @@ function Layout() {
 
   const { storeName, contactInfo, branding } = useSettings();
 
-  // A configured logo that fails to load must never leave a broken-image icon:
-  // the store initial takes over instead.
+  // If the logo will not load we show the store's initial instead. A broken
+  // image icon in the header would look awful.
   const [logoFailed, setLogoFailed] = useState(false);
   const showLogo = Boolean(branding.logoUrl) && !logoFailed;
 

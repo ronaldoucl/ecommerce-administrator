@@ -1,7 +1,6 @@
 /*
- * Mobile-first admin shell. On narrow screens the layout stacks: a sticky top
- * bar with a menu toggle, the collapsible navigation, then the page content.
- * From 48rem up it becomes a two-column layout with a persistent sidebar.
+ * Mobile first: on phones everything stacks (sticky top bar, menu, then the
+ * page). From 48rem up it turns into two columns with a permanent sidebar.
  */
 .shell {
   display: flex;
@@ -55,8 +54,8 @@
 }
 
 /*
- * The sidebar is desktop-only: on phones the same links are rendered inside the
- * shared <MobileMenu> drawer, so there is nothing to expand in place here.
+ * Desktop only. On phones these same links are rendered inside the MobileMenu
+ * drawer instead, so there is nothing to collapse here.
  */
 .sidebar {
   display: none;
@@ -107,8 +106,7 @@
 }
 
 .logout {
-  /* Vertical padding only: keeps the sidebar rhythm but gives the bare-text
-     control a comfortable touch area on mobile. */
+  /* Vertical padding only, so this text-only button is still easy to tap. */
   padding: var(--space-2) 0;
   font: inherit;
   font-size: var(--font-size-sm);

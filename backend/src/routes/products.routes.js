@@ -10,15 +10,15 @@ import {
 import { addVariant } from '../controllers/variant.controller.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 
-// Product routes: /api/products/*
+// /api/products/*
 //
-// requireAuth is applied per-route rather than router-wide, so the public storefront
-// endpoints below stay unauthenticated while the admin writes require a valid JWT.
+// requireAuth goes on each route instead of the whole router, because the
+// storefront reads have to stay public while the admin writes do not.
 const router = Router();
 
 // Public storefront endpoints.
-// NOTE: '/featured' MUST be declared before '/:id', otherwise Express would match
-// the literal path "featured" as the :id parameter.
+// '/featured' has to come before '/:id' or Express will treat the word
+// "featured" as an id and we get a validation error instead of the page.
 router.get('/featured', getFeaturedProducts);
 router.get('/:id', getProductById);
 

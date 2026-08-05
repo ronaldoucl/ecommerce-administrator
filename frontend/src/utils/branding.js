@@ -1,36 +1,26 @@
-/**
- * Branding helper.
- *
- * `branding` is stored as a single free-text column (up to 500 characters), so
- * the API contract allows several shapes for it:
- *   - a JSON object, e.g. {"primaryColor":"#4F46E5","logoUrl":"https://…/logo.png"}
- *   - a bare logo URL, e.g. https://cdn.store.com/logo.png
- *   - a bare colour, e.g. #4F46E5
- *   - any other short text, used as a tagline next to the store name
- *
- * This helper normalizes all of them into one predictable object so the
- * storefront never has to branch on the raw string.
- */
+// The `branding` setting is one free-text column, and the API contract lets it
+// hold any of these:
+//   - JSON: {"primaryColor":"#4F46E5","logoUrl":"https://.../logo.png"}
+//   - just a logo URL
+//   - just a colour
+//   - any other short text, shown as a tagline
+//
+// parseBranding turns all of them into the same object so the storefront never
+// has to check which shape it got.
 
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 const COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
-/** Return `value` when it is a non-empty string, otherwise null. */
 function cleanString(value) {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
-/**
- * @param {string|null|undefined} branding - the raw `branding` settings column
- * @returns {{ logoUrl: string|null, primaryColor: string|null, text: string|null }}
- */
 export function parseBranding(branding) {
   const empty = { logoUrl: null, primaryColor: null, text: null };
 
   const raw = cleanString(branding);
   if (!raw) return empty;
 
-  // JSON object form.
   if (raw.startsWith('{')) {
     try {
       const parsed = JSON.parse(raw);
@@ -44,7 +34,7 @@ export function parseBranding(branding) {
         };
       }
     } catch {
-      // Not valid JSON after all — fall through to the plain-text handling.
+      // Not JSON after all — treat it as plain text below.
     }
   }
 
@@ -54,14 +44,9 @@ export function parseBranding(branding) {
   return { ...empty, text: raw };
 }
 
-/**
- * Expand `#RGB` to `#RRGGBB` and uppercase it, mirroring the backend
- * normalization (backend/src/utils/branding.js), so the swatch, the native
- * colour input and the stored value always agree.
- *
- * @param {string} value - a hex colour, with or without shorthand
- * @returns {string|null} the normalized `#RRGGBB`, or null when invalid
- */
+// "#abc" -> "#AABBCC". Same rule as the backend (backend/src/utils/branding.js)
+// so the swatch, the colour input and the saved value never disagree.
+// Returns null if the value is not a valid hex colour.
 export function normalizeHexColor(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) return null;
@@ -78,36 +63,89 @@ export function normalizeHexColor(value) {
   return `#${full.toUpperCase()}`;
 }
 
-/** Darken a `#RRGGBB` colour by `amount` (0–1) for hover/active states. */
-function darken(hex, amount) {
-  const value = parseInt(hex.slice(1), 16);
-  const channel = (shift) =>
-    Math.max(0, Math.round(((value >> shift) & 0xff) * (1 - amount)))
-      .toString(16)
-      .padStart(2, '0');
+// --- colour maths, so a custom brand colour never makes text unreadable ---
 
-  return `#${channel(16)}${channel(8)}${channel(0)}`.toUpperCase();
+const WHITE = [255, 255, 255];
+const BLACK = [0, 0, 0];
+
+// The theme's --color-surface and --color-text.
+const SURFACE = [255, 255, 255];
+const INK = [15, 23, 42];
+
+function toRgb(hex) {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
 
-/**
- * Build the inline style that applies the store's primary colour to a shell.
- *
- * Setting the custom properties on the wrapping element recolours every
- * component inside it — buttons, badges, links — without touching the global
- * theme, so an unset colour simply falls back to the theme default.
- * `--brand-primary` is exposed as well for styles that want the brand colour
- * explicitly rather than the themeable `--color-primary`.
- *
- * @param {string|null|undefined} primaryColor - the branding colour
- * @returns {object|undefined} an inline style object, or undefined when unset
- */
+function toHex(rgb) {
+  return `#${rgb.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+// Blends `weight` (0-1) of `target` into `base`.
+function mix(base, target, weight) {
+  return base.map((channel, index) => channel + (target[index] - channel) * weight);
+}
+
+// WCAG relative luminance — how bright a colour looks to the eye.
+function luminance(rgb) {
+  const [r, g, b] = rgb.map((channel) => {
+    const ratio = channel / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4;
+  });
+
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// WCAG contrast ratio: 1 = same colour, 21 = black on white. 4.5 is the minimum
+// for normal text.
+function contrast(a, b) {
+  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// White or dark text, whichever stays readable on ALL the given backgrounds, so
+// the label does not have to change colour when you hover.
+// We keep white while it passes AA, because white on a coloured button is the
+// look people expect; dark text only kicks in for pale brand colours.
+function readableText(backgrounds) {
+  const worst = (text) => Math.min(...backgrounds.map((background) => contrast(text, background)));
+  if (worst(WHITE) >= 4.5) return WHITE;
+
+  return worst(WHITE) >= worst(INK) ? WHITE : INK;
+}
+
+// Darkens the colour until it is readable as TEXT on a white card.
+function legibleOnSurface(rgb, target = 4.5) {
+  let color = rgb;
+  for (let step = 0; step < 20 && contrast(color, SURFACE) < target; step += 1) {
+    color = mix(color, BLACK, 0.08);
+  }
+
+  return color;
+}
+
+// Inline style that repaints everything inside an element with the store's
+// colour. No colour set means no style, so the default theme shows through.
+//
+// We build the whole family from the one colour the admin picked. Overriding
+// only --color-primary was not enough: the rest of the theme stayed indigo, so
+// hover looked identical to the base and white labels disappeared on pale
+// colours. Now hover always moves away from the base (darker, or lighter if the
+// brand is nearly black), the text colour is picked for contrast, and -ink is a
+// version dark enough to read as text on white.
 export function brandStyle(primaryColor) {
   const color = normalizeHexColor(primaryColor);
   if (!color) return undefined;
 
+  const base = toRgb(color);
+  const hover = luminance(base) > 0.02 ? mix(base, BLACK, 0.18) : mix(base, WHITE, 0.25);
+
   return {
     '--brand-primary': color,
     '--color-primary': color,
-    '--color-primary-dark': darken(color, 0.15),
+    '--color-primary-dark': toHex(hover),
+    '--color-primary-light': toHex(mix(base, WHITE, 0.88)),
+    '--color-primary-ink': toHex(legibleOnSurface(base)),
+    '--color-text-inverse': toHex(readableText([base, hover])),
   };
 }

@@ -1,27 +1,15 @@
 import { config } from '../config/env.js';
 import { getSettings } from './settings.service.js';
 
-/**
- * Email service — notifies a customer when their order changes status.
- *
- * Sending is gated by the `StoreSettings.emailEnabled` switch, which the admin
- * toggles from the dashboard (Settings). With it off nothing is sent, nothing
- * sensitive is logged, and the caller is told the email was skipped.
- *
- * The split is deliberate: the switch is store configuration an admin changes at
- * will, while the provider credentials are secrets and stay in the environment.
- *
- * TRANSPORT: Brevo's HTTP API, called with `fetch` — so this feature adds no npm
- * dependency at all. HTTP rather than SMTP on purpose: Render's free plan blocks
- * outbound traffic to the SMTP ports (25/465/587), which makes direct SMTP
- * unusable in production, while plain HTTPS is unaffected.
- *
- * CONTRACT FOR CALLERS: this module NEVER throws. Sending an email must never
- * be able to roll back or fail an order status change, so every failure is
- * returned as `{ sent: false, error }` instead.
- */
+// Sends the customer an email when their order changes status.
+//
+// Two things to know before touching this file:
+//   1. Nothing here ever throws. The status change is already saved by the time
+//      we get called, so a failed email must never break it — we return
+//      { sent, error } instead.
+//   2. We use Brevo's HTTP API with fetch (no npm package). SMTP would be nicer
+//      but Render's free plan blocks the SMTP ports, so HTTPS it is.
 
-/** Subject/body copy per status, kept in one place. */
 const STATUS_COPY = {
   pending: 'We have received your order',
   confirmed: 'Your order has been confirmed',
@@ -30,15 +18,9 @@ const STATUS_COPY = {
   cancelled: 'Your order has been cancelled',
 };
 
-/**
- * Build the message for an order status change. Exported so the sender and any
- * future preview/testing tooling share exactly the same copy.
- *
- * @param {{ reference: string, customerName: string, customerEmail: string }} order
- * @param {string} newStatus - the status the order has just moved to
- * @returns {{ to: string, subject: string, text: string }}
- */
-export function buildOrderStatusMessage(order, newStatus) {
+// Writes the email text. Separate from the sending so we can build a message
+// without calling Brevo.
+function buildOrderStatusMessage(order, newStatus) {
   const headline = STATUS_COPY[newStatus] ?? `Your order status is now ${newStatus}`;
 
   const lines = [
@@ -64,43 +46,26 @@ export function buildOrderStatusMessage(order, newStatus) {
 const BREVO_SEND_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 const BREVO_SENDERS_ENDPOINT = 'https://api.brevo.com/v3/senders';
 
-/**
- * Ceiling for one whole notification attempt, retry included.
- *
- * This is the API's response-time guarantee: the admin's status change is
- * already committed, so whatever the provider does, the dashboard hears back
- * promptly instead of sitting on a spinner.
- */
+// Max time for the whole attempt, retry included, so the dashboard never hangs.
 const SEND_DEADLINE_MS = 12000;
-
-/** Shorter budget for the sender lookup — it is a pre-flight, not the payload. */
 const SENDER_CHECK_TIMEOUT_MS = 5000;
 
-/**
- * The sender address already confirmed as verified, so the extra lookup happens
- * at most once per process. Keyed by the ADDRESS rather than a flag, so changing
- * MAIL_FROM_EMAIL re-runs the check instead of riding on the previous answer.
- * A NEGATIVE result is deliberately not cached: once the admin verifies the
- * address in Brevo, the next send works without restarting the server.
- */
+// Remembers the address we already checked, so we only ask Brevo once. We store
+// the address (not true/false) so changing MAIL_FROM_EMAIL re-runs the check.
+// Failures are not cached: verify the sender in Brevo and the next send works.
 let verifiedSender = null;
 
-/** Common headers for every Brevo call. */
 function brevoHeaders() {
   return { 'api-key': config.email.apiKey, accept: 'application/json' };
 }
 
-/**
- * Fail fast when MAIL_FROM_EMAIL is not a verified Brevo sender.
- *
- * This check exists because of a trap: Brevo ACCEPTS the send request with
- * `201 Created` and only rejects it asynchronously, so without this the API
- * would report `emailSent: true` for a message that is silently discarded.
- * Better to refuse up front with an explanation.
- *
- * Fails OPEN: if the lookup itself cannot run (network, rate limit), the send is
- * still attempted — this is a safety net, not a gate.
- */
+// Checks MAIL_FROM_EMAIL is a verified sender in Brevo.
+//
+// This exists because of a nasty trap: Brevo answers 201 Created and THEN throws
+// the message away if the sender is not verified. Without this we would tell the
+// admin "email sent" about an email nobody receives.
+//
+// If the check itself fails we let the send go ahead — it is a warning, not a gate.
 async function assertSenderVerified() {
   const from = config.email.fromEmail.toLowerCase();
   if (verifiedSender === from) return;
@@ -134,15 +99,8 @@ async function assertSenderVerified() {
   throw error;
 }
 
-/**
- * Post one message to Brevo. Throws on failure; the caller maps it.
- *
- * @param {{ to: string, subject: string, text: string }} message
- * @param {number} timeoutMs - budget left for this attempt
- */
+// Posts one message to Brevo. Throws on failure; the caller decides what to do.
 async function postMessage(message, timeoutMs) {
-  // Brevo returns 201 even for a message it will later discard, so the sender is
-  // validated first — otherwise the failure would be invisible to the admin.
   await assertSenderVerified();
 
   const res = await fetch(BREVO_SEND_ENDPOINT, {
@@ -159,7 +117,7 @@ async function postMessage(message, timeoutMs) {
 
   if (res.ok) return;
 
-  // Brevo answers errors as { code, message }; fall back to the status text.
+  // Brevo sends errors as { code, message }; fall back to the status text.
   const detail = await res
     .json()
     .then((body) => body?.message || JSON.stringify(body))
@@ -167,34 +125,31 @@ async function postMessage(message, timeoutMs) {
 
   const error = new Error(`Brevo rejected the message (${res.status}): ${detail}`);
   if (res.status === 401 || res.status === 403) {
-    error.code = 'EAUTH'; // bad API key — never worth retrying
+    error.code = 'EAUTH'; // bad API key — retrying will not help
   } else if (res.status >= 500) {
-    error.code = 'EPROVIDER_DOWN'; // provider-side blip — worth one retry
+    error.code = 'EPROVIDER_DOWN'; // their side — worth one retry
   } else {
     error.code = 'EPROVIDER'; // our payload is wrong (sender, quota, address)
   }
   throw error;
 }
 
-/** True for failures that a second, immediate attempt might get past. */
+// Is it worth trying again right now?
 function isTransient(err) {
   if (err?.code === 'EPROVIDER_DOWN') return true;
-  // fetch reports every network-level failure as `TypeError: fetch failed`,
-  // with the real reason in `cause`.
+  // fetch reports every network error as "TypeError: fetch failed" and hides the
+  // real reason in `cause`.
   return err?.name === 'TypeError' && Boolean(err?.cause);
 }
 
-/**
- * Turn a failure into something an admin can act on. Raw provider wording
- * ("fetch failed") says nothing about what to do next.
- */
+// Turns the error into something the admin can actually act on.
 function describeSendFailure(err) {
   if (err?.code === 'EAUTH') {
     return 'the email provider rejected the API key — check BREVO_API_KEY.';
   }
   if (err?.code === 'EPROVIDER' || err?.code === 'EPROVIDER_DOWN') {
-    // Brevo's own wording is specific and actionable (unverified sender, quota,
-    // malformed recipient), so it is passed through rather than flattened.
+    // Brevo's own message is specific enough (unverified sender, quota, bad
+    // address), so we pass it through.
     return err.message;
   }
   if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
@@ -206,14 +161,7 @@ function describeSendFailure(err) {
   return err?.message || 'the notification email could not be sent.';
 }
 
-/**
- * Deliver the message, with a single retry for a transient failure.
- *
- * Returns `{ sent, error }` rather than throwing, so the caller can report the
- * outcome without ever putting the committed status change at risk.
- *
- * @param {{ to: string, subject: string, text: string }} message
- */
+// Sends the message, retrying once if the failure looks temporary.
 async function sendViaProvider(message) {
   if (!config.email.configured) {
     return {
@@ -223,7 +171,6 @@ async function sendViaProvider(message) {
     };
   }
 
-  // SEND_DEADLINE_MS is the budget for the WHOLE operation, retry included.
   const startedAt = Date.now();
   const remaining = () => SEND_DEADLINE_MS - (Date.now() - startedAt);
 
@@ -231,15 +178,14 @@ async function sendViaProvider(message) {
     await postMessage(message, remaining());
     return { sent: true, error: null };
   } catch (err) {
-    // The raw cause is logged for the operator — the client only ever sees the
-    // sanitized description, and the recipient address is never logged.
+    // Log the real error for us; the admin only sees the cleaned-up version.
+    // Never log the customer's address.
     console.error(
       `[email] send failed after ${Date.now() - startedAt}ms (${err?.code || err?.name || 'no code'}): ${err?.message}`,
     );
 
-    // Retry only a transient failure that failed FAST. A slow timeout means the
-    // provider is unreachable: retrying would just double the admin's wait for
-    // the same answer.
+    // Only retry if it failed fast. A slow timeout means Brevo is unreachable,
+    // so retrying just makes the admin wait twice for the same answer.
     if (!isTransient(err) || remaining() < 3000) {
       return { sent: false, error: describeSendFailure(err) };
     }
@@ -255,15 +201,8 @@ async function sendViaProvider(message) {
   }
 }
 
-/**
- * Read the notification switch from the store configuration.
- *
- * Never throws: an unseeded store (getSettings throws 404) or an unreachable
- * database is treated as "notifications off", which keeps this module's contract
- * intact for a status change that has already been committed.
- *
- * @returns {Promise<boolean>}
- */
+// Reads the on/off switch from the store settings. If we cannot read them
+// (unseeded store, DB down) we treat it as off instead of blowing up.
 async function notificationsEnabled() {
   try {
     const settings = await getSettings();
@@ -273,19 +212,9 @@ async function notificationsEnabled() {
   }
 }
 
-/**
- * Notify the customer that their order moved to a new status.
- *
- * Always resolves — never throws — so the caller can attempt it after the status
- * change has already been committed without risking that change.
- *
- * @param {{ order: { reference: string, customerName: string, customerEmail: string },
- *   newStatus: string }} params
- * @returns {Promise<{ sent: boolean, error: string|null }>}
- */
+// Entry point. Always resolves, never throws — see the note at the top.
 export async function sendOrderStatusEmail({ order, newStatus }) {
   if (!(await notificationsEnabled())) {
-    // Disabled: nothing is sent and nothing sensitive is logged.
     return { sent: false, error: null, reason: 'email disabled' };
   }
 
@@ -294,7 +223,6 @@ export async function sendOrderStatusEmail({ order, newStatus }) {
     const result = await sendViaProvider(message);
     return { sent: Boolean(result?.sent), error: result?.error ?? null };
   } catch (err) {
-    // Never leak the customer address or provider credentials into the message.
     return { sent: false, error: err?.message || 'The notification email could not be sent.' };
   }
 }

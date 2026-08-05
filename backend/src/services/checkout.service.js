@@ -3,15 +3,12 @@ import prisma from '../config/prisma.js';
 import { notFound, conflict, createHttpError } from '../utils/httpError.js';
 import { generateOrderReference } from '../utils/orderReference.js';
 
-// Checkout service — the ONLY place the order flow touches Prisma.
-//
-// Money is handled with Prisma.Decimal end to end (never JS floating point), so
-// prices and totals keep exact precision and serialize as strings ("129.98").
+// The checkout flow. Money is Prisma.Decimal the whole way through — never plain
+// JS numbers — so nothing loses cents and totals go out as strings ("129.98").
 
 const MAX_REFERENCE_ATTEMPTS = 5;
 
-// True when the error is the Order.reference unique-constraint violation, which is
-// the only failure we retry (with a freshly generated reference).
+// Did we generate a reference that already exists? That is the one error we retry.
 function isReferenceCollision(err) {
   return (
     err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -21,36 +18,38 @@ function isReferenceCollision(err) {
   );
 }
 
-// Run the whole checkout in a single transaction with the given reference.
-// Any thrown error rolls everything back: no order, no items, no stock change.
+// The whole checkout in one transaction: if anything throws, nothing happened —
+// no order, no items, no stock touched.
 async function runCheckoutTransaction(input, reference) {
   const { customerName, customerEmail, shippingInfo, items } = input;
   const variantIds = items.map((item) => item.variantId);
 
   return prisma.$transaction(async (tx) => {
-    // 1. Load every requested variant WITH its product in a single query.
+    // Fetch every variant (and its product) in one query.
     const variants = await tx.productVariant.findMany({
       where: { id: { in: variantIds } },
       include: { product: true },
     });
     const variantById = new Map(variants.map((variant) => [variant.id, variant]));
 
-    // 2-6. Validate existence/availability/stock and resolve prices on the SERVER.
-    // All checks run BEFORE any write, so an oversell is rejected without side effects.
+    // Check everything and work out the prices BEFORE writing anything, so a bad
+    // request is rejected without leaving half an order behind.
     const lines = items.map((item) => {
       const variant = variantById.get(item.variantId);
       if (!variant) {
         throw notFound(`Variant not found: ${item.variantId}`);
       }
       if (!variant.product.isActive) {
-        // 400 without the "Validation failed:" prefix — this is a state error, not input.
+        // 400 with no "Validation failed:" prefix — the input was fine, the
+        // product just is not for sale.
         throw createHttpError(400, `Product is not available: ${variant.product.name}`);
       }
       if (variant.stock < item.quantity) {
         throw conflict(`Insufficient stock for ${variant.label}. Available: ${variant.stock}`);
       }
 
-      // Unit price is resolved from the DB only: variant override, else product base.
+      // Price always comes from the database: the variant's own, or the
+      // product's if the variant has none. Never from the request.
       const unitPrice = new Prisma.Decimal(variant.price ?? variant.product.basePrice);
       const lineTotal = unitPrice.mul(item.quantity);
 
@@ -68,8 +67,9 @@ async function runCheckoutTransaction(input, reference) {
       new Prisma.Decimal(0),
     );
 
-    // 10. Atomically decrement stock, guarded by `stock >= quantity`. If a concurrent
-    // order grabbed the last units, updateMany affects 0 rows and we roll back.
+    // Take the stock with `stock >= quantity` built into the WHERE. If someone
+    // else bought the last units a moment ago, this updates 0 rows and we bail
+    // out — that is what stops two people buying the same last item.
     for (const line of lines) {
       const { count } = await tx.productVariant.updateMany({
         where: { id: line.variant.id, stock: { gte: line.quantity } },
@@ -80,7 +80,8 @@ async function runCheckoutTransaction(input, reference) {
       }
     }
 
-    // 8-9. Create the order and its line items (price snapshots) in one write.
+    // Order + line items in one write. The items keep a copy of the price so the
+    // order total never changes if the product is repriced later.
     const order = await tx.order.create({
       data: {
         reference,
@@ -100,8 +101,6 @@ async function runCheckoutTransaction(input, reference) {
       },
     });
 
-    // Shape the response. Decimal values stay as Prisma.Decimal so they serialize
-    // as strings ("64.99") — never converted to Number in the backend.
     return {
       reference: order.reference,
       status: order.status,
@@ -120,9 +119,8 @@ async function runCheckoutTransaction(input, reference) {
   });
 }
 
-// Public checkout entry point. Retries only on a reference collision, regenerating
-// the reference each time; after MAX_REFERENCE_ATTEMPTS it surfaces a 500. Business
-// errors (404/400/409) propagate immediately and are never retried.
+// Entry point. Retries ONLY when the reference collided, with a new one each
+// time. Real errors (404/400/409) go straight up and are never retried.
 export async function checkout(input) {
   for (let attempt = 1; attempt <= MAX_REFERENCE_ATTEMPTS; attempt += 1) {
     try {
@@ -140,7 +138,8 @@ export async function checkout(input) {
     }
   }
 
-  // Unreachable: the loop either returns or throws, but keeps the function total.
+  // Never runs — the loop always returns or throws — but it keeps the function
+  // honest for anyone reading it.
   throw createHttpError(500, 'Could not generate a unique order reference. Please try again.', {
     expose: true,
   });

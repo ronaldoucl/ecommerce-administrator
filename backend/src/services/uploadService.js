@@ -2,25 +2,16 @@ import cloudinary from '../config/cloudinary.js';
 import { config } from '../config/env.js';
 import { createHttpError } from '../utils/httpError.js';
 
-// Upload service — the ONLY place images are handed to Cloudinary.
+// The only place we talk to Cloudinary.
 //
-// It deliberately touches no database: an upload just turns a file into a hosted
-// URL. That URL is then sent back to the admin UI, which puts it in the product's
-// `images` array like any hand-pasted URL — so the frozen schema (ProductImage.url)
-// needs no change at all, and uploading stays optional.
+// It never touches the database. An upload just turns a file into a hosted URL,
+// and the admin UI then saves that URL in the product's images like any other.
+// That is why uploading is optional and why ProductImage only stores a url.
 
-/**
- * Upload an image and return its hosted URL.
- *
- * @param {{ buffer: Buffer, mimetype: string, originalName: string }} file
- * @returns {Promise<{ url: string, publicId: string, width: number, height: number,
- *   format: string, bytes: number }>}
- */
 export async function uploadImage(file) {
   if (!config.cloudinary.enabled) {
-    // 503 rather than 500: the service is fine, it just has no image host wired
-    // up. `expose` keeps the message — it tells the admin exactly what to do,
-    // and it is documented in API_CONTRACT.md.
+    // 503, not 500: nothing is broken, there is just no image host set up. We
+    // keep the message visible because it tells the admin exactly what to do.
     throw createHttpError(
       503,
       'Image uploads are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET, or paste an image URL instead.',
@@ -28,15 +19,15 @@ export async function uploadImage(file) {
     );
   }
 
-  // Cloudinary's upload() takes a data URI, which avoids having to bridge its
-  // stream API onto the in-memory buffer multer produced.
+  // Cloudinary accepts a data URI, which saves us from wiring its stream API up
+  // to the in-memory buffer multer gave us.
   const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
   const result = await cloudinary.uploader.upload(dataUri, {
     folder: config.cloudinary.folder,
     resource_type: 'image',
-    // Cloudinary re-derives the type from the bytes, so a file with a lying
-    // extension cannot be stored as something else.
+    // Cloudinary works the real type out from the bytes, so renaming a file to
+    // .jpg does not get it stored as an image.
   });
 
   return {

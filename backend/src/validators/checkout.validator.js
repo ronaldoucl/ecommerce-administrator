@@ -1,17 +1,13 @@
-// Validation for the public checkout payload.
-//
-// Same style as the Sprint 2 validators: dependency-free checks that return a
-// NORMALIZED object for the service, or throw a 400 error (see src/utils/httpError.js)
-// describing the first problem found. No validation library.
+// Checks the public checkout payload before the service touches the database.
 
 import { badRequest } from '../utils/httpError.js';
 
-// Simple email check — not RFC-complete, just "something@something.tld".
+// Not a full RFC email check, just "something@something.tld". Good enough here —
+// a typo we cannot catch would only mean the confirmation email bounces.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ITEMS = 50;
 const MAX_QUANTITY = 99;
 
-// Required trimmed string constrained to [min, max] characters.
 function parseBoundedString(value, field, min, max) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw badRequest(`${field} is required`);
@@ -41,8 +37,9 @@ function parsePositiveInteger(value, field) {
   return value;
 }
 
-// items: non-empty array, at most MAX_ITEMS, no duplicate variantId. Each entry
-// carries a positive-integer variantId and an integer quantity in [1, MAX_QUANTITY].
+// The cart lines. We reject duplicate variantIds instead of merging them, so the
+// client cannot sneak past the per-line quantity cap by sending the same variant
+// several times.
 function parseItems(value) {
   if (!Array.isArray(value) || value.length === 0) {
     throw badRequest('items must be a non-empty array');
@@ -77,7 +74,6 @@ function parseItems(value) {
   });
 }
 
-// POST /api/checkout — validate and normalize the cart payload.
 export function validateCheckout(body) {
   if (!body || typeof body !== 'object') {
     throw badRequest('request body is required');

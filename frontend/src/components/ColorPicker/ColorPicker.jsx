@@ -1,26 +1,15 @@
-import { normalizeHexColor } from '../../utils/branding';
+import { brandStyle, normalizeHexColor } from '../../utils/branding';
 import styles from './ColorPicker.module.css';
 
-/**
- * Friendly hex colour control: a swatch preview, the native colour picker and a
- * text field for the exact hex value, all kept in sync.
- *
- * The text field is the source of truth (it holds whatever the admin typed, even
- * mid-edit), while the swatch and the native picker follow the last value that
- * parses as a colour — so dragging the picker fills the text field, and typing a
- * valid hex moves the picker. No colour-picker library is involved.
- *
- * Validation is left to the caller: pass `error` to show it inline. Empty means
- * "no custom colour", which is valid and falls back to the default theme.
- *
- * @param {object} props
- * @param {string} props.id - id of the text input, for the caller's <label>
- * @param {string} props.value - the raw hex value being edited (may be partial)
- * @param {(value: string) => void} props.onChange
- * @param {string} [props.fallback='#4F46E5'] - swatch colour when nothing is set
- * @param {string} [props.error]
- * @param {boolean} [props.disabled]
- */
+// Colour picker: a swatch, the browser's native colour input and a text box for
+// the exact hex, all kept in sync.
+//
+// The text box is the source of truth because it holds whatever you typed, even
+// half-finished ("#4F4"). The swatch and the native input follow the last value
+// that actually parses. So dragging the picker fills the text box, and typing a
+// valid hex moves the picker. No colour library involved.
+//
+// Leaving it empty is valid and means "use the default theme colour".
 function ColorPicker({ id, value, onChange, fallback = '#4F46E5', error = '', disabled = false }) {
   // The last usable colour: what the swatch and the native input display.
   const resolved = normalizeHexColor(value) ?? fallback;
@@ -63,8 +52,13 @@ function ColorPicker({ id, value, onChange, fallback = '#4F46E5', error = '', di
         </span>
       )}
 
-      {/* Live preview: what the colour will actually look like once saved. */}
-      <div className={styles.preview} style={{ '--preview-color': resolved }}>
+      {/*
+        Live preview: what the colour will actually look like once saved. It is
+        driven by brandStyle — the same derivation the storefront shell uses — so
+        the label colours shown here match the real thing, including on pale
+        brand colours where white text would be unreadable.
+      */}
+      <div className={styles.preview} style={brandStyle(resolved)}>
         <div className={styles.previewHeader}>
           <span className={styles.previewDot} />
           <span>Storefront header</span>

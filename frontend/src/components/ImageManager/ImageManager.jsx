@@ -4,37 +4,21 @@ import Button from '../Button/Button';
 import { uploadService } from '../../services';
 import styles from './ImageManager.module.css';
 
-/**
- * Admin editor for a product's image gallery.
- *
- * Images can be added two ways, and both end up as the same thing — a URL in the
- * product's `images` array:
- *   - uploaded from the computer (POST /api/uploads/image hosts the file and
- *     returns its URL), or
- *   - pasted directly as a URL, which still works when uploads are not
- *     configured on the server.
- *
- * One row per image with a live preview, add / remove and reorder controls.
- * ORDER MATTERS — the list is sent to the API in this exact order and the FIRST
- * image is the product's primary one, so it is marked as such and moving a row
- * changes which image leads the storefront gallery.
- *
- * @param {object} props
- * @param {Array<{ url: string, alt: string }>} props.images - current rows
- * @param {(images: Array<{ url: string, alt: string }>) => void} props.onChange
- * @param {boolean} [props.disabled] - disables every control while saving
- */
+// The image gallery editor in the product form.
+//
+// You can upload a file or paste a URL — either way it ends up as a URL in the
+// product's `images`, so pasting still works if the server has no Cloudinary.
+//
+// The ORDER of the rows matters: it is sent to the API exactly as shown and the
+// first image is the main one, so moving a row changes what the storefront leads
+// with.
 
-/** Mirrors the backend rule (src/validators/product.validator.js). */
+// These three all mirror the backend rules — keep them in sync.
 const IMAGE_URL_PATTERN = /^https?:\/\/\S+$/i;
-
-/** Maximum rows, matching the backend limit. */
-export const MAX_IMAGES = 10;
-
-/** Accepted by the upload endpoint (src/validators/upload.validator.js). */
+const MAX_IMAGES = 10;
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/gif,image/avif';
 
-/** An empty row is simply ignored on save; anything else must be a real URL. */
+// A blank row is fine (it gets dropped on save); anything else must be a URL.
 export function imageUrlError(url) {
   const value = (url ?? '').trim();
   if (value === '') return '';
@@ -42,10 +26,8 @@ export function imageUrlError(url) {
   return '';
 }
 
-/**
- * Drop the blank rows and trim what is left, producing the `images` array the
- * API expects. Exported so the form sends exactly what the editor shows.
- */
+// Drops the blank rows and trims the rest. Exported so the form sends exactly
+// what the editor is showing.
 export function toImagePayload(images) {
   return images
     .filter((image) => (image.url ?? '').trim() !== '')
@@ -56,25 +38,20 @@ export function toImagePayload(images) {
 }
 
 function ImageManager({ images, onChange, disabled = false }) {
-  // URLs that failed to load, so a preview shows a clear note instead of a
-  // broken-image icon while the admin fixes the address.
+  // URLs that would not load, so we can say so instead of showing a broken
+  // image icon while the admin fixes the address.
   const [brokenUrls, setBrokenUrls] = useState(() => new Set());
 
-  // Upload lifecycle. The file input is hidden and driven by the button, so the
-  // control matches the rest of the form instead of the browser's default.
+  // The file input is hidden and clicked by our own button, so it looks like the
+  // rest of the form instead of the browser's default control.
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
   const remainingSlots = MAX_IMAGES - images.length;
 
-  /**
-   * Upload the chosen files and append a row per successful upload.
-   *
-   * Files are uploaded one at a time so a failure part-way through still keeps
-   * everything already uploaded — those rows stay, and the error names what did
-   * not make it.
-   */
+  // Uploads one file at a time on purpose: if the fourth one fails, the first
+  // three are already added and we only report the one that did not make it.
   const handleFilesChosen = async (event) => {
     const files = Array.from(event.target.files ?? []).slice(0, remainingSlots);
     // Let the same file be picked again later (e.g. after a failed upload).
@@ -117,8 +94,8 @@ function ImageManager({ images, onChange, disabled = false }) {
 
   const removeRow = (index) => onChange(images.filter((_, i) => i !== index));
 
-  // Reordering is a swap with the neighbouring row, which is enough to promote
-  // any image to primary without a drag-and-drop dependency.
+  // Reordering just swaps with the row above or below. Enough to move any image
+  // to the front, and no drag-and-drop library needed.
   const moveRow = (index, delta) => {
     const target = index + delta;
     if (target < 0 || target >= images.length) return;
@@ -146,8 +123,8 @@ function ImageManager({ images, onChange, disabled = false }) {
             const isValid = url !== '' && !error && !brokenUrls.has(url);
 
             return (
-              // Rows are positional (they can be reordered and are not saved
-              // individually), so the index is the stable identity here.
+              // Using the index as key is fine here: rows have no id of their
+              // own and their position IS their identity.
               <li key={index} className={styles.row}>
                 <div className={styles.preview}>
                   {isValid ? (

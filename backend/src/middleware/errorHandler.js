@@ -1,19 +1,16 @@
-// Centralized Express error-handling middleware — the ONLY place errors become
-// responses. Uses the (err, req, res, next) signature so Express treats it as an
-// error handler, and is mounted last in server.js.
+// The only place errors turn into responses. Mounted last in server.js, and the
+// (err, req, res, next) signature is what tells Express it is an error handler.
 //
-// Disclosure rule:
-//   - 4xx  — the message was written for the caller by a validator or a service
-//            (e.g. "Validation failed: id must be a positive integer"), so it is safe
-//            to return as-is.
-//   - 5xx  — the message is internal (Prisma query dumps, driver errors, stack traces)
-//            and MUST NOT reach the client. The real error is logged server-side only
-//            and the caller gets a generic message.
+// The rule for what the client sees:
+//   4xx - the message was written for them by a validator or service, so we send
+//         it as-is ("Validation failed: id must be a positive integer").
+//   5xx - the message is ours (Prisma dumps, driver errors, stack traces) and
+//         must not leak. We log it and send something generic.
 
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
-  // express.json() rejects unparseable bodies with its own parser message. Normalize
-  // it to the shared shape rather than echoing body-parser internals.
+  // express.json() has its own wording for a broken body. Replace it so every
+  // error looks the same from outside.
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ message: 'Malformed JSON body' });
   }
@@ -24,11 +21,11 @@ export function errorHandler(err, req, res, next) {
     return res.status(status).json({ message: err.message || 'Bad request' });
   }
 
-  // A 5xx always gets logged: it is a real server-side failure either way.
+  // A 5xx is always a real failure on our side, so always log it.
   console.error(`[error] ${req.method} ${req.originalUrl} —`, err);
 
-  // Deliberate, contract-documented server errors keep their message (see
-  // createHttpError's `expose` option). Everything else is masked.
+  // A few 5xx messages are written for the client on purpose (see `expose` in
+  // utils/httpError.js). Everything else gets hidden.
   if (err.expose === true) {
     return res.status(status).json({ message: err.message });
   }
