@@ -59,20 +59,46 @@ function parseBoolean(value, field) {
   return value;
 }
 
-// Optional inline images on create: [{ url, alt? }].
+// Image URLs must be absolute http(s) links (real file upload is not supported —
+// the admin pastes URLs), short enough to stay sane in the database and in the UI.
+const IMAGE_URL_PATTERN = /^https?:\/\/\S+$/i;
+const IMAGE_URL_MAX = 2048;
+const IMAGE_ALT_MAX = 200;
+const MAX_IMAGES = 10;
+
+// Ordered gallery for a product: [{ url, alt? }, ...].
+//
+// ORDER IS MEANINGFUL: the array is stored in this exact order and the FIRST
+// entry is the product's primary image. ProductImage has no position column
+// (the schema is frozen), so the service relies on creation order instead.
+// An empty array is allowed and simply clears the gallery.
 function parseImages(value) {
   if (!Array.isArray(value)) {
     throw badRequest('images must be an array');
   }
+  if (value.length > MAX_IMAGES) {
+    throw badRequest(`images must contain at most ${MAX_IMAGES} entries`);
+  }
 
   return value.map((image) => {
-    if (!image || typeof image !== 'object') {
+    if (!image || typeof image !== 'object' || Array.isArray(image)) {
       throw badRequest('each image must be an object with a url');
     }
-    return {
-      url: parseRequiredString(image.url, 'image url'),
-      alt: image.alt === undefined ? null : parseOptionalString(image.alt, 'image alt'),
-    };
+
+    const url = parseRequiredString(image.url, 'image url');
+    if (!IMAGE_URL_PATTERN.test(url)) {
+      throw badRequest('image url must be a valid http(s) URL');
+    }
+    if (url.length > IMAGE_URL_MAX) {
+      throw badRequest(`image url must be at most ${IMAGE_URL_MAX} characters`);
+    }
+
+    const alt = image.alt === undefined ? null : parseOptionalString(image.alt, 'image alt');
+    if (alt !== null && alt.length > IMAGE_ALT_MAX) {
+      throw badRequest(`image alt must be at most ${IMAGE_ALT_MAX} characters`);
+    }
+
+    return { url, alt };
   });
 }
 
@@ -113,6 +139,7 @@ export function validateUpdateProduct(body) {
   if (body.basePrice !== undefined) data.basePrice = parseBasePrice(body.basePrice);
   if (body.isActive !== undefined) data.isActive = parseBoolean(body.isActive, 'isActive');
   if (body.isFeatured !== undefined) data.isFeatured = parseBoolean(body.isFeatured, 'isFeatured');
+  if (body.images !== undefined) data.images = parseImages(body.images);
 
   if (Object.keys(data).length === 0) {
     throw badRequest('at least one field must be provided');

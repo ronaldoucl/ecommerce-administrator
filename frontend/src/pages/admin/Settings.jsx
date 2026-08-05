@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
+import ColorPicker from '../../components/ColorPicker/ColorPicker';
+import { useToast } from '../../components/Toast/ToastProvider';
 import { settingsService } from '../../services';
 import { useSettings } from '../../context/SettingsContext';
+import { SUPPORTED_CURRENCIES } from '../../utils/format';
+import { normalizeHexColor, parseBranding } from '../../utils/branding';
 import styles from './Settings.module.css';
 
 // Mirror the backend rules (settings.validator.js) so invalid input is caught
@@ -12,16 +16,40 @@ const STORE_NAME_MIN = 2;
 const STORE_NAME_MAX = 80;
 const MAIN_TEXT_MAX = 2000;
 const CONTACT_INFO_MAX = 500;
-const BRANDING_MAX = 500;
-const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+const LOGO_URL_MAX = 300;
+const URL_PATTERN = /^https?:\/\/\S+$/i;
 
 const EMPTY_FORM = {
   storeName: '',
   mainText: '',
   contactInfo: '',
   currency: '',
+  // Branding is split into friendly controls; the API stores both inside the
+  // single `branding` column as JSON (see backend/src/utils/branding.js).
+  logoUrl: '',
+  primaryColor: '',
+  // The raw column value as loaded, sent back untouched so anything it carries
+  // that has no control here (e.g. a tagline) survives the save.
   branding: '',
+  // Customer notification emails on an order status change.
+  emailEnabled: false,
 };
+
+/** Split a settings payload into the shape this form edits. */
+function toFormState(settings) {
+  const branding = parseBranding(settings.branding);
+
+  return {
+    storeName: settings.storeName ?? '',
+    mainText: settings.mainText ?? '',
+    contactInfo: settings.contactInfo ?? '',
+    currency: settings.currency ?? '',
+    logoUrl: branding.logoUrl ?? '',
+    primaryColor: branding.primaryColor ?? '',
+    branding: settings.branding ?? '',
+    emailEnabled: Boolean(settings.emailEnabled),
+  };
+}
 
 /**
  * Admin settings page: edit the single store configuration row that drives the
@@ -33,8 +61,15 @@ const EMPTY_FORM = {
  */
 function Settings() {
   const { applySettings } = useSettings();
+  const toast = useToast();
 
   const [form, setForm] = useState(EMPTY_FORM);
+  // Set when the logo preview fails to load, so the fallback is shown instead of
+  // a broken image. Reset on every edit of the URL.
+  const [logoFailed, setLogoFailed] = useState(false);
+  // Read-only flag from the API: whether the server has the mailbox credentials
+  // that the notification switch needs. Not part of the form — never sent back.
+  const [emailConfigured, setEmailConfigured] = useState(false);
 
   // Initial load.
   const [isLoading, setIsLoading] = useState(true);
@@ -52,13 +87,8 @@ function Settings() {
 
     try {
       const settings = await settingsService.getSettings();
-      setForm({
-        storeName: settings.storeName ?? '',
-        mainText: settings.mainText ?? '',
-        contactInfo: settings.contactInfo ?? '',
-        currency: settings.currency ?? '',
-        branding: settings.branding ?? '',
-      });
+      setForm(toFormState(settings));
+      setEmailConfigured(Boolean(settings.emailConfigured));
     } catch (err) {
       setLoadError(
         err.status
@@ -77,6 +107,8 @@ function Settings() {
   const setField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
     setSavedMessage('');
+    // A new URL deserves a fresh attempt at loading the preview.
+    if (name === 'logoUrl') setLogoFailed(false);
   };
 
   const validate = () => {
@@ -89,11 +121,9 @@ function Settings() {
       errors.storeName = `Store name must be between ${STORE_NAME_MIN} and ${STORE_NAME_MAX} characters.`;
     }
 
-    const currency = form.currency.trim();
-    if (!currency) {
+    // The currency is chosen from a dropdown, so it can only be missing.
+    if (!form.currency.trim()) {
       errors.currency = 'Currency is required.';
-    } else if (!CURRENCY_PATTERN.test(currency)) {
-      errors.currency = 'Currency must be a 3-letter uppercase code (e.g. USD, EUR, CRC).';
     }
 
     if (form.mainText.trim().length > MAIN_TEXT_MAX) {
@@ -104,8 +134,20 @@ function Settings() {
       errors.contactInfo = `Contact info must be at most ${CONTACT_INFO_MAX} characters.`;
     }
 
-    if (form.branding.trim().length > BRANDING_MAX) {
-      errors.branding = `Branding must be at most ${BRANDING_MAX} characters.`;
+    // Branding: both parts are optional, but anything typed must be valid — an
+    // invalid colour or logo URL blocks the save instead of being dropped.
+    const logoUrl = form.logoUrl.trim();
+    if (logoUrl !== '') {
+      if (!URL_PATTERN.test(logoUrl)) {
+        errors.logoUrl = 'Enter a full http(s) URL, or leave it empty.';
+      } else if (logoUrl.length > LOGO_URL_MAX) {
+        errors.logoUrl = `The logo URL must be at most ${LOGO_URL_MAX} characters.`;
+      }
+    }
+
+    const primaryColor = form.primaryColor.trim();
+    if (primaryColor !== '' && !normalizeHexColor(primaryColor)) {
+      errors.primaryColor = 'Enter a hex colour such as #4F46E5, or leave it empty.';
     }
 
     setFieldErrors(errors);
@@ -128,7 +170,14 @@ function Settings() {
       currency: form.currency.trim(),
       mainText: optional(form.mainText),
       contactInfo: optional(form.contactInfo),
+      // `logoUrl` and `primaryColor` win; the raw `branding` value rides along
+      // so anything else it holds (a tagline) is carried over by the backend.
       branding: optional(form.branding),
+      logoUrl: form.logoUrl.trim(),
+      primaryColor: form.primaryColor.trim(),
+      // PUT replaces the whole row, so this must ride along on every save or
+      // notifications would be switched off by editing any other field.
+      emailEnabled: form.emailEnabled,
     };
 
     setIsSaving(true);
@@ -137,24 +186,20 @@ function Settings() {
       const updated = await settingsService.updateSettings(payload);
 
       // Keep the form and the storefront in sync with what was actually stored.
-      setForm({
-        storeName: updated.storeName ?? '',
-        mainText: updated.mainText ?? '',
-        contactInfo: updated.contactInfo ?? '',
-        currency: updated.currency ?? '',
-        branding: updated.branding ?? '',
-      });
+      setForm(toFormState(updated));
+      setEmailConfigured(Boolean(updated.emailConfigured));
       applySettings(updated);
       setSavedMessage('Settings saved. The storefront now shows the new values.');
+      toast.success('Settings saved. The storefront now shows the new values.');
     } catch (err) {
       // `status === null` means the request never reached the backend (server
       // down, connection lost). Axios only offers a bare "Network Error" there,
       // so say something actionable instead of echoing it.
-      setSubmitError(
-        err.status
-          ? err.message || 'The settings could not be saved.'
-          : 'Could not reach the server. Check that the backend is running and try again.',
-      );
+      const message = err.status
+        ? err.message || 'The settings could not be saved.'
+        : 'Could not reach the server. Check that the backend is running and try again.';
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -258,28 +303,34 @@ function Settings() {
           </label>
 
           {/*
-            The currency input is deliberately NOT capped with maxLength: a
-            too-long code such as "USDD" must be typeable so it fails validation
-            with a visible message instead of being silently truncated to a
-            valid one. Input is upper-cased as it is typed, since codes are
-            always uppercase and "usd" should not fail on a technicality.
+            The currency drives only the SYMBOL prices are displayed with — the
+            amounts themselves never change. The backend still accepts any
+            3-letter code, so a store already configured with something outside
+            this list keeps working: that code is offered as an extra option.
           */}
           <label className={styles.field} htmlFor="currency">
             Currency
-            <input
+            <select
               id="currency"
-              className={`${styles.input} ${styles.inputShort}`}
-              type="text"
-              placeholder="USD"
-              autoCapitalize="characters"
+              className={`${styles.input} ${styles.select}`}
               value={form.currency}
-              onChange={(event) => setField('currency', event.target.value.toUpperCase())}
+              onChange={(event) => setField('currency', event.target.value)}
               disabled={isSaving}
               aria-invalid={Boolean(fieldErrors.currency)}
               aria-describedby={fieldErrors.currency ? 'currency-error' : undefined}
-            />
+            >
+              {!SUPPORTED_CURRENCIES.some(({ code }) => code === form.currency) && (
+                <option value={form.currency}>{form.currency || 'Select a currency'}</option>
+              )}
+              {SUPPORTED_CURRENCIES.map(({ code, symbol, name }) => (
+                <option key={code} value={code}>
+                  {code} {symbol} — {name}
+                </option>
+              ))}
+            </select>
             <span className={styles.hint}>
-              Three-letter code used for every price on the storefront.
+              Sets the symbol shown with every price across the storefront, the cart and the
+              admin. Amounts are not converted.
             </span>
             {fieldErrors.currency && (
               <span className={styles.fieldError} id="currency-error">
@@ -288,29 +339,101 @@ function Settings() {
             )}
           </label>
 
-          <label className={styles.field} htmlFor="branding">
-            Branding <span className={styles.optional}>(optional)</span>
-            <textarea
-              id="branding"
-              className={styles.textarea}
-              rows={3}
-              placeholder='{"primaryColor":"#4F46E5","logoUrl":"https://cdn.store.com/logo.png"}'
-              value={form.branding}
-              onChange={(event) => setField('branding', event.target.value)}
-              disabled={isSaving}
-              aria-invalid={Boolean(fieldErrors.branding)}
-              aria-describedby={fieldErrors.branding ? 'branding-error' : undefined}
-            />
-            <span className={styles.hint}>
-              A logo URL, a hex colour such as #4F46E5, a JSON object with
-              <code> logoUrl</code> / <code>primaryColor</code>, or a short tagline.
-            </span>
-            {fieldErrors.branding && (
-              <span className={styles.fieldError} id="branding-error">
-                {fieldErrors.branding}
+          {/* ── Branding: logo + primary colour ─────────────────────────── */}
+          <fieldset className={styles.fieldset} disabled={isSaving}>
+            <legend className={styles.legend}>Branding</legend>
+
+            <label className={styles.field} htmlFor="logoUrl">
+              Logo URL <span className={styles.optional}>(optional)</span>
+              <input
+                id="logoUrl"
+                className={styles.input}
+                type="url"
+                inputMode="url"
+                placeholder="https://cdn.store.com/logo.png"
+                value={form.logoUrl}
+                onChange={(event) => setField('logoUrl', event.target.value)}
+                aria-invalid={Boolean(fieldErrors.logoUrl)}
+                aria-describedby={fieldErrors.logoUrl ? 'logoUrl-error' : undefined}
+              />
+              <span className={styles.hint}>
+                Shown in the storefront header. Without one, the store name is used instead.
               </span>
-            )}
-          </label>
+              {fieldErrors.logoUrl && (
+                <span className={styles.fieldError} id="logoUrl-error">
+                  {fieldErrors.logoUrl}
+                </span>
+              )}
+            </label>
+
+            {/* Live preview at the size the header actually renders it. */}
+            <div className={styles.logoPreview}>
+              <span className={styles.logoPreviewLabel}>Header preview</span>
+              <div className={styles.logoPreviewBar}>
+                {form.logoUrl.trim() && !fieldErrors.logoUrl && !logoFailed ? (
+                  <img
+                    className={styles.logoPreviewImage}
+                    src={form.logoUrl.trim()}
+                    alt=""
+                    width="36"
+                    height="36"
+                    onError={() => setLogoFailed(true)}
+                  />
+                ) : (
+                  <span className={styles.logoPreviewFallback} aria-hidden="true">
+                    {(form.storeName.trim() || 'S').charAt(0)}
+                  </span>
+                )}
+                <span className={styles.logoPreviewName}>{form.storeName || 'Store'}</span>
+              </div>
+              {logoFailed && (
+                <span className={styles.fieldError}>
+                  That logo could not be loaded — the store name will be shown instead.
+                </span>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="primaryColor">
+                Primary colour <span className={styles.optional}>(optional)</span>
+              </label>
+              <ColorPicker
+                id="primaryColor"
+                value={form.primaryColor}
+                onChange={(value) => setField('primaryColor', value)}
+                error={fieldErrors.primaryColor}
+                disabled={isSaving}
+              />
+              <span className={styles.hint}>
+                Accent colour used for buttons, links and highlights on the storefront.
+                Leave it empty to keep the default theme colour.
+              </span>
+            </div>
+          </fieldset>
+
+          {/* ── Customer notifications ──────────────────────────────────── */}
+          <fieldset className={styles.fieldset} disabled={isSaving}>
+            <legend className={styles.legend}>Notifications</legend>
+
+            <label className={styles.checkboxField} htmlFor="emailEnabled">
+              <input
+                id="emailEnabled"
+                className={styles.checkbox}
+                type="checkbox"
+                checked={form.emailEnabled}
+                onChange={(event) => setField('emailEnabled', event.target.checked)}
+                disabled={!emailConfigured}
+                aria-describedby="emailEnabled-hint"
+              />
+              Email customers when their order status changes
+            </label>
+
+            <span className={styles.hint} id="emailEnabled-hint">
+              {emailConfigured
+                ? 'The customer is notified on every status change. With this off the status change still happens — the customer is simply not emailed.'
+                : 'Unavailable: the server has no mailbox credentials. Set SMTP_USER and SMTP_PASS in the backend environment (a Gmail address and its 16-character app password), then restart the backend.'}
+            </span>
+          </fieldset>
 
           {submitError && (
             <p className={styles.error} role="alert">

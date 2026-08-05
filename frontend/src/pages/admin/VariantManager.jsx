@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
+import { useConfirm } from '../../components/ConfirmModal/ConfirmProvider';
+import { useToast } from '../../components/Toast/ToastProvider';
 import { productService, variantService } from '../../services';
 import styles from './VariantManager.module.css';
 
@@ -50,6 +52,9 @@ function toPayload({ label, price, stock }) {
  * the real API state. Every call has its own loading and error handling.
  */
 function VariantManager({ productId, initialVariants }) {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [variants, setVariants] = useState(initialVariants);
   const [reloadError, setReloadError] = useState('');
 
@@ -142,21 +147,34 @@ function VariantManager({ productId, initialVariants }) {
     }
   };
 
-  const handleDelete = async (variant) => {
-    const confirmed = window.confirm(`Delete variant "${variant.label}"?`);
-    if (!confirmed) return;
+  const handleDelete = (variant) =>
+    confirm({
+      title: 'Delete this variant?',
+      message: `"${variant.label}" will be removed from this product.`,
+      warning: 'Its remaining stock is removed with it. Past orders keep their own snapshot.',
+      confirmLabel: 'Delete variant',
+      tone: 'danger',
+      onConfirm: async () => {
+        setBusyId(variant.id);
+        setRowError('');
 
-    setBusyId(variant.id);
-    setRowError('');
-    try {
-      await variantService.remove(variant.id);
-      await reloadVariants();
-    } catch (err) {
-      setRowError(err.message || 'The variant could not be deleted.');
-    } finally {
-      setBusyId(null);
-    }
-  };
+        try {
+          await variantService.remove(variant.id);
+        } catch (err) {
+          setBusyId(null);
+          toast.error(err?.message || 'The variant could not be deleted.');
+          throw err; // keeps the dialog open with the backend message too
+        }
+
+        try {
+          await reloadVariants();
+        } finally {
+          setBusyId(null);
+        }
+
+        toast.success(`Variant "${variant.label}" deleted.`);
+      },
+    });
 
   return (
     <Card title="Variants" className={styles.card}>

@@ -1,0 +1,121 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.swatch {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+/* Native colour input, sized to sit beside the swatch as a compact trigger. */
+.nativeInput {
+  flex-shrink: 0;
+  width: 44px;
+  height: 40px;
+  padding: 2px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.nativeInput:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.hexInput {
+  flex: 1 1 8rem;
+  min-width: 7rem;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-weight: var(--font-weight-normal);
+  text-transform: uppercase;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.hexInput:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.hexInput:disabled {
+  background-color: var(--color-bg);
+  cursor: not-allowed;
+}
+
+.error {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-danger);
+}
+
+/*
+ * Live preview of where the colour lands on the storefront. Text colours are
+ * intentionally left to the surface defaults (white on the accent, the accent
+ * on white) so an unusual brand colour never produces unreadable copy here.
+ */
+.preview {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-normal);
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-inverse);
+  background-color: var(--preview-color);
+}
+
+.previewDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--color-text-inverse);
+  opacity: 0.85;
+}
+
+.previewBody {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--color-surface);
+}
+
+.previewButton {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-inverse);
+  background-color: var(--preview-color);
+}
+
+.previewLink {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--preview-color);
+}

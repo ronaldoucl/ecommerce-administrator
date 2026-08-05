@@ -30,6 +30,8 @@ request after idle can take 30–60 seconds. Open `<BACKEND_URL>/api/health` onc
 | Database | PostgreSQL |
 | ORM | Prisma 6 |
 | Auth | JWT (`jsonwebtoken`) + `bcryptjs` password hashing |
+| Email | SMTP via `nodemailer` (optional — off by default) |
+| Image hosting | Cloudinary via `cloudinary` + `multer` (optional — pasting URLs always works) |
 | Frontend hosting | Vercel |
 | Backend hosting | Render (Railway works with the same build/start commands) |
 
@@ -153,6 +155,9 @@ cp .env.example .env
 | `PORT` | no | Defaults to `4000`. Render injects its own — do not set it there. |
 | `LOW_STOCK_THRESHOLD` | no | Variants at or below this stock are flagged low. Integer, defaults to `5`. |
 | `CLIENT_ORIGIN` | no | Comma-separated allowed CORS origins. Defaults to `http://localhost:5173`. Any `*.vercel.app` origin is always allowed. |
+| `SMTP_USER` / `SMTP_PASS` | no | Gmail mailbox used to notify customers on an order status change. `SMTP_PASS` is a 16-character **app password**, not the account password. Without them the notification switch in **Dashboard > Settings** stays unavailable: status changes still work and the API reports `"emailSent": false`. The switch itself is store configuration (`StoreSettings.emailEnabled`), not an environment variable. |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | no | Enable uploading product images from the admin panel. Without them the upload button reports that uploads are not configured and image URLs can still be pasted by hand. |
+| `CLOUDINARY_FOLDER` | no | Folder uploads land in. Defaults to `ecommerce-administrator/products`. |
 | `NODE_ENV` | no | Do not set by hand — hosting platforms set it. When it is anything other than `production`, Prisma logs queries to the console. Leave it unset locally. |
 
 `DATABASE_URL` and `JWT_SECRET` are validated at boot — the server refuses to start without them.
@@ -224,6 +229,7 @@ Full request/response contracts are in [API_CONTRACT.md](API_CONTRACT.md).
 | PATCH | `/api/orders/:id/status` | Protected | Advance or cancel an order; cancelling restocks. |
 | GET | `/api/settings` | Public | Store configuration consumed by the storefront. |
 | PUT | `/api/settings` | Protected | Update store configuration. |
+| POST | `/api/uploads/image` | Protected | Host an uploaded image and return its URL. |
 | GET | `/api/analytics/summary` | Protected | The five dashboard metrics. |
 
 ## Known limitations / academic scope
@@ -232,8 +238,10 @@ Full request/response contracts are in [API_CONTRACT.md](API_CONTRACT.md).
   order and decrements stock; nothing is charged. Totals are labelled "simulated revenue".
 - **Single admin user.** Created by the seed from env values. No public registration, no password
   reset, no roles or permission levels.
-- **Images are URLs, not uploads.** There is no file storage; product images are external URLs
-  stored as strings. If the host goes away, the image breaks.
+- **Images are stored as URLs.** The database keeps a URL per image, never a file. Uploading from
+  the admin panel is supported when Cloudinary credentials are configured — the file is hosted
+  there and only the returned URL is stored. Without those credentials images can still be added
+  by pasting a URL. Either way, if the host of an image goes away, that image breaks.
 - **Free-tier cold starts.** The Render backend sleeps after ~15 minutes idle; the first request
   can take 30–60 seconds. Warm `/api/health` before any demo.
 - **Single featured product by design.** The storefront highlights one product at a time; there is

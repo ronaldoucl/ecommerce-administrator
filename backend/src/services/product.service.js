@@ -8,7 +8,9 @@ import { notFound } from '../utils/httpError.js';
 // yields a string, so it serializes as "49.90" (never NaN), matching the contract.
 
 // Products are always returned with their images and variants attached.
-const productInclude = { images: true, variants: true };
+// Images are ordered by id so every read returns the gallery in its stored
+// order — the first image is the product's primary one.
+const productInclude = { images: { orderBy: { id: 'asc' } }, variants: true };
 
 // Attach computed stock flags to a product and its variants. These are derived
 // in the service from the live `stock` value (never stored) so every product
@@ -111,16 +113,64 @@ export async function createProduct(data) {
   return withStockFlags(product);
 }
 
+// Sync a product's gallery to match `images` exactly, inside the caller's
+// transaction (`tx`) so the product update and its gallery commit together.
+//
+// ProductImage has no position column (the schema is frozen), so the gallery
+// order IS the row creation order and the first row is the primary image. That
+// makes the sync order-sensitive:
+//   - when the incoming urls already match the stored ones in the same order,
+//     only the alt texts are refreshed and no row is churned;
+//   - otherwise the gallery is rebuilt in the requested order, which removes the
+//     images that are no longer present and creates the new ones in one pass.
+async function syncProductImages(tx, productId, images) {
+  const existing = await tx.productImage.findMany({
+    where: { productId },
+    orderBy: { id: 'asc' },
+  });
+
+  const sameOrder =
+    existing.length === images.length &&
+    existing.every((image, index) => image.url === images[index].url);
+
+  if (sameOrder) {
+    for (const [index, image] of existing.entries()) {
+      if (image.alt !== images[index].alt) {
+        await tx.productImage.update({
+          where: { id: image.id },
+          data: { alt: images[index].alt },
+        });
+      }
+    }
+    return;
+  }
+
+  await tx.productImage.deleteMany({ where: { productId } });
+
+  // Created one by one (not createMany) so the ids — and therefore the gallery
+  // order — follow the array order deterministically.
+  for (const image of images) {
+    await tx.productImage.create({ data: { ...image, productId } });
+  }
+}
+
 // Update the provided fields of a product. Throws 404 if it does not exist.
 // Featuring it unfeatures every other product in the same transaction.
+// When `images` is provided, the gallery is synced to match it exactly.
 export async function updateProduct(id, data) {
+  const { images, ...productData } = data;
+
   const product = await prisma.$transaction(async (tx) => {
     const existing = await tx.product.findUnique({ where: { id } });
     if (!existing) throw notFound('Product not found');
 
+    if (images !== undefined) {
+      await syncProductImages(tx, id, images);
+    }
+
     const updated = await tx.product.update({
       where: { id },
-      data,
+      data: productData,
       include: productInclude,
     });
 

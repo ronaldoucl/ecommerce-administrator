@@ -5,7 +5,11 @@ import api from './api';
  *
  * `StoreSettings` is a single-row configuration table, so both endpoints work on
  * that one row and return the same shape:
- *   { id, storeName, mainText, contactInfo, currency, branding }
+ *   { id, storeName, mainText, contactInfo, currency, branding, emailEnabled,
+ *     emailConfigured }
+ *
+ * `emailConfigured` is READ-ONLY: it is derived from the server environment (are
+ * the mailbox credentials present?) and is rejected if sent back on a PUT.
  */
 const settingsService = {
   /**
@@ -32,8 +36,18 @@ const settingsService = {
    * `storeName` and `currency` are required; `mainText`, `contactInfo` and
    * `branding` accept a string or `null` to clear the column.
    *
+   * `logoUrl` and `primaryColor` are convenience fields rather than columns: the
+   * backend serializes both into the single `branding` column as JSON. When they
+   * are sent they take precedence over the raw `branding` string in the same
+   * request (which is still parsed, so a tagline it carries is preserved).
+   *
+   * `emailEnabled` switches the customer order-status notifications on or off.
+   * Like every optional field here it defaults to `false` when omitted, so the
+   * caller must send it on every save.
+   *
    * @param {{ storeName: string, currency: string, mainText?: string|null,
-   *   contactInfo?: string|null, branding?: string|null }} payload
+   *   contactInfo?: string|null, branding?: string|null, logoUrl?: string|null,
+   *   primaryColor?: string|null, emailEnabled?: boolean }} payload
    * @returns {Promise<object>} the updated store settings
    */
   async updateSettings(payload) {

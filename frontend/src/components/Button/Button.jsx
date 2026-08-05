@@ -9,7 +9,7 @@ import styles from './Button.module.css';
  *
  * @param {object} props
  * @param {React.ElementType} [props.as='button'] - Element/component to render.
- * @param {'primary'|'secondary'|'ghost'} [props.variant='primary'] - Visual style.
+ * @param {'primary'|'secondary'|'ghost'|'danger'} [props.variant='primary'] - Visual style.
  * @param {'button'|'submit'|'reset'} [props.type] - Native button type (only when rendering a <button>).
  * @param {React.ReactNode} props.children - Button label / content.
  */

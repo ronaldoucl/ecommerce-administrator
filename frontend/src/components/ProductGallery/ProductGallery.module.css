@@ -1,0 +1,84 @@
+/*
+ * Mobile-first gallery: main image with the thumbnail strip underneath. From
+ * 48rem up the strip moves to a column on the left, next to the main image.
+ */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.mainImage {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-primary-light);
+}
+
+.thumbs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.thumb,
+.thumbActive {
+  display: block;
+  padding: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: none;
+  border: 2px solid var(--color-border);
+}
+
+.thumb:hover {
+  border-color: var(--color-primary-dark);
+}
+
+.thumbActive {
+  border-color: var(--color-primary);
+}
+
+.thumb img,
+.thumbActive img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Tablet and up: thumbnail rail beside the main image. */
+@media (min-width: 48rem) {
+  .gallery {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+  }
+
+  .mainImage {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .thumbs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    max-height: 28rem;
+    overflow-y: auto;
+  }
+
+  .thumb,
+  .thumbActive {
+    width: 72px;
+    height: 72px;
+  }
+}

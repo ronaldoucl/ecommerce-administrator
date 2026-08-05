@@ -5,6 +5,7 @@ import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
 import StatusBadge from '../../components/StatusBadge/StatusBadge';
 import { orderService } from '../../services';
+import { useSettings } from '../../context/SettingsContext';
 import { ORDER_STATUSES, statusLabel } from '../../constants/orderStatus';
 import { formatPrice, formatDate } from '../../utils/format';
 import styles from './Orders.module.css';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 10;
  */
 function Orders() {
   const navigate = useNavigate();
+  const { currency } = useSettings();
 
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
@@ -131,7 +133,7 @@ function Orders() {
                         <StatusBadge status={order.status} />
                       </td>
                       <td>{order.itemCount}</td>
-                      <td>{formatPrice(order.totalAmount)}</td>
+                      <td>{formatPrice(order.totalAmount, currency)}</td>
                       <td>{formatDate(order.createdAt)}</td>
                     </tr>
                   ))}
