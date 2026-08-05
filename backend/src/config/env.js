@@ -46,6 +46,13 @@ export const config = {
   // and the on/off switch is store configuration, edited from the admin
   // dashboard and stored in StoreSettings.emailEnabled.
   email: {
+    // Preferred transport: Brevo's HTTP API. It is plain HTTPS, so it works on
+    // hosts that block outbound SMTP ports (Render's free plan blocks 25/465/587).
+    apiKey: process.env.BREVO_API_KEY || '',
+    fromEmail: process.env.MAIL_FROM_EMAIL || '',
+    fromName: process.env.MAIL_FROM_NAME || 'Store',
+    // Fallback transport: direct SMTP. Handy for local development, where the
+    // ports are open and a plain Gmail app password is enough.
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
   },
@@ -61,10 +68,15 @@ export const config = {
   },
 };
 
-// True only when both Gmail credentials are present. The admin dashboard reads
-// this (as `emailConfigured`) to explain why the notification switch cannot be
-// turned on yet.
-config.email.configured = Boolean(config.email.user && config.email.pass);
+// Which transports the server can actually use. The HTTP API is preferred when
+// both are available, because it works everywhere; SMTP is the local fallback.
+config.email.httpConfigured = Boolean(config.email.apiKey && config.email.fromEmail);
+config.email.smtpConfigured = Boolean(config.email.user && config.email.pass);
+
+// True when the server can send at all, by either route. The admin dashboard
+// reads this (as `emailConfigured`) to explain why the notification switch
+// cannot be turned on yet.
+config.email.configured = config.email.httpConfigured || config.email.smtpConfigured;
 
 // True only when all three Cloudinary credentials are present.
 config.cloudinary.enabled = Boolean(

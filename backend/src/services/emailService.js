@@ -6,18 +6,21 @@ import { getSettings } from './settings.service.js';
 /**
  * Email service — notifies a customer when their order changes status.
  *
- * The store can run with or without notifications, so there are TWO
- * implementations behind the `StoreSettings.emailEnabled` switch, which the
- * admin toggles from the dashboard (Settings):
- *
- *   - emailEnabled = false (default): a no-op stub. Nothing is sent, no customer
- *     data is logged, and the caller is told the email was skipped.
- *   - emailEnabled = true: the real sender, over Gmail SMTP via nodemailer. It
- *     needs SMTP_USER / SMTP_PASS in the environment; missing credentials are
- *     reported as a plain error instead of throwing.
+ * Sending is gated by the `StoreSettings.emailEnabled` switch, which the admin
+ * toggles from the dashboard (Settings). With it off nothing is sent, nothing
+ * sensitive is logged, and the caller is told the email was skipped.
  *
  * The split is deliberate: the switch is store configuration an admin changes at
- * will, while the mailbox credentials are secrets and stay in the environment.
+ * will, while the provider credentials are secrets and stay in the environment.
+ *
+ * TWO TRANSPORTS, chosen by what the environment provides:
+ *
+ *   1. Brevo HTTP API (preferred) — plain HTTPS, so it works on hosts that block
+ *      outbound SMTP. Render's free plan blocks ports 25/465/587, which makes
+ *      SMTP unusable there; HTTPS is unaffected. Needs BREVO_API_KEY and a
+ *      verified MAIL_FROM_EMAIL. Uses `fetch`, so it adds no dependency.
+ *   2. SMTP via nodemailer (fallback) — used when no API key is configured.
+ *      Convenient for local development, where the ports are open.
  *
  * CONTRACT FOR CALLERS: this module NEVER throws. Sending an email must never
  * be able to roll back or fail an order status change, so every failure is
@@ -112,14 +115,18 @@ function getTransport() {
   return transport;
 }
 
+/** Transport failures worth a second attempt: transient network conditions. */
+const TRANSIENT_CODES = ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNRESET'];
+
 /** Reject if `promise` has not settled within `ms`. */
 function withDeadline(promise, ms) {
   let timer;
   const deadline = new Promise((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error('the mail server did not respond in time')),
-      ms,
-    );
+    timer = setTimeout(() => {
+      const err = new Error('the email provider did not respond in time');
+      err.name = 'TimeoutError';
+      reject(err);
+    }, ms);
   });
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
@@ -132,7 +139,22 @@ function describeSendFailure(err) {
   const code = err?.code;
 
   if (code === 'EAUTH') {
-    return 'the mailbox rejected the credentials — check SMTP_USER and that SMTP_PASS is a current Google app password.';
+    return config.email.httpConfigured
+      ? 'the email provider rejected the API key — check BREVO_API_KEY.'
+      : 'the mailbox rejected the credentials — check SMTP_USER and that SMTP_PASS is a current Google app password.';
+  }
+  if (code === 'EPROVIDER') {
+    // Brevo's own wording is specific and actionable (unverified sender, quota,
+    // malformed recipient), so it is passed through rather than flattened.
+    return err.message;
+  }
+  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+    return 'the email provider did not respond in time. The order status was still updated — you can retry the notification by changing the status again.';
+  }
+  // fetch reports every network-level failure as `TypeError: fetch failed`, with
+  // the real reason buried in `cause`. That is useless to an admin on its own.
+  if (err?.name === 'TypeError' && err?.cause) {
+    return 'the email provider could not be reached (network or DNS). The order status was still updated — you can retry the notification by changing the status again.';
   }
   if (code === 'ETIMEDOUT' || code === 'ECONNECTION' || code === 'ESOCKET' || code === 'EDNS') {
     return 'the mail server could not be reached (network or firewall). The order status was still updated — you can retry the notification by changing the status again.';
@@ -143,8 +165,52 @@ function describeSendFailure(err) {
   return err?.message || 'the notification email could not be sent.';
 }
 
+/** Brevo's transactional endpoint. Plain HTTPS — no SMTP port involved. */
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+
 /**
- * Real delivery over SMTP.
+ * Delivery over the Brevo HTTP API.
+ *
+ * Throws on failure (the caller maps it), with the provider's own explanation
+ * attached when it sent one, because Brevo's messages are specific and useful
+ * ("sender not verified", "IP not allowed", …).
+ *
+ * @param {{ to: string, subject: string, text: string }} message
+ */
+async function sendViaHttp(message) {
+  const res = await fetch(BREVO_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'api-key': config.email.apiKey,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { email: config.email.fromEmail, name: config.email.fromName },
+      to: [{ email: message.to }],
+      subject: message.subject,
+      textContent: message.text,
+    }),
+    // The transport-level ceiling; sendViaProvider still bounds the whole call.
+    signal: AbortSignal.timeout(SEND_DEADLINE_MS),
+  });
+
+  if (res.ok) return;
+
+  // Brevo answers errors as { code, message }; fall back to the status text.
+  const detail = await res
+    .json()
+    .then((body) => body?.message || JSON.stringify(body))
+    .catch(() => res.statusText);
+
+  const error = new Error(`Brevo rejected the message (${res.status}): ${detail}`);
+  // Reuse the SMTP vocabulary so describeSendFailure treats both alike.
+  error.code = res.status === 401 || res.status === 403 ? 'EAUTH' : 'EPROVIDER';
+  throw error;
+}
+
+/**
+ * Real delivery, over whichever transport the environment supports.
  *
  * Returns `{ sent, error }` rather than throwing, so the caller can report the
  * outcome without ever putting the committed status change at risk.
@@ -156,23 +222,56 @@ async function sendViaProvider(message) {
     return {
       sent: false,
       error:
-        'Email notifications are on, but the mailbox is not configured: missing SMTP_USER, SMTP_PASS. See .env.example.',
+        'Email notifications are on, but no sender is configured: set BREVO_API_KEY and MAIL_FROM_EMAIL (or SMTP_USER and SMTP_PASS for local SMTP). See .env.example.',
     };
   }
 
-  // Gmail rewrites the sender to the authenticated account anyway, so the
-  // credentials are the single source of truth for the From address.
-  //
-  // Bounded by SEND_DEADLINE_MS so a hanging mail server can never hold the
-  // admin's status-change response open (the change itself is already stored).
+  // Prefer the HTTP API: it is the only route that works on a host with the SMTP
+  // ports blocked. SMTP is used only when no API key is configured.
+  const useHttp = config.email.httpConfigured;
+
+  // Over SMTP, Gmail rewrites the sender to the authenticated account anyway, so
+  // the credentials are the single source of truth for the From address.
+  const envelope = { from: config.email.user, ...message };
+
+  // SEND_DEADLINE_MS is the budget for the WHOLE operation, retry included, so
+  // the admin's status-change response can never be held open longer than that
+  // (the status change itself is already stored either way).
+  const startedAt = Date.now();
+  const remaining = () => SEND_DEADLINE_MS - (Date.now() - startedAt);
+  const attempt = () =>
+    useHttp
+      ? withDeadline(sendViaHttp(message), remaining())
+      : withDeadline(getTransport().sendMail(envelope), remaining());
+
   try {
-    await withDeadline(
-      getTransport().sendMail({ from: config.email.user, ...message }),
-      SEND_DEADLINE_MS,
-    );
+    await attempt();
     return { sent: true, error: null };
   } catch (err) {
-    return { sent: false, error: describeSendFailure(err) };
+    // The raw cause is logged for the operator — the client only ever sees the
+    // sanitized description, and the recipient address is never logged.
+    console.error(`[email] send failed after ${Date.now() - startedAt}ms (${err?.code || 'no code'}): ${err?.message}`);
+
+    // Retry only a transient failure that failed FAST. A slow timeout means the
+    // route is blocked or the server is unreachable: retrying would just double
+    // the admin's wait for the same answer.
+    const worthRetrying = TRANSIENT_CODES.includes(err?.code) && remaining() > 3000;
+    if (!worthRetrying) {
+      return { sent: false, error: describeSendFailure(err) };
+    }
+
+    // A transient failure can leave the cached transport holding a dead socket,
+    // so it is dropped and rebuilt for the single retry.
+    transport = null;
+
+    try {
+      await attempt();
+      console.error('[email] retry succeeded');
+      return { sent: true, error: null };
+    } catch (retryErr) {
+      console.error(`[email] retry failed (${retryErr?.code || 'no code'}): ${retryErr?.message}`);
+      return { sent: false, error: describeSendFailure(retryErr) };
+    }
   }
 }
 
