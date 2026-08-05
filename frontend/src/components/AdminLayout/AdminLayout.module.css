@@ -23,28 +23,30 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.menuToggle {
-  padding: var(--space-2) var(--space-3);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.menuToggle:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
 .brand,
 .brandDesktop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-primary);
+}
+
+.brandName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Store logo when one is configured; falls back to the store name alone. */
+.brandLogo {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
 }
 
 /* The brand inside the sidebar only shows on wide screens (the top bar owns it on mobile). */
@@ -52,22 +54,16 @@
   display: none;
 }
 
-.sidebar {
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-/* Collapsed by default on mobile; the menu toggle reveals it. */
+/*
+ * The sidebar is desktop-only: on phones the same links are rendered inside the
+ * shared <MobileMenu> drawer, so there is nothing to expand in place here.
+ */
 .sidebar {
   display: none;
-}
-
-.sidebarOpen {
-  display: flex;
-  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .nav {
@@ -152,11 +148,10 @@
   }
 
   .brandDesktop {
-    display: block;
+    display: inline-flex;
   }
 
-  .sidebar,
-  .sidebarOpen {
+  .sidebar {
     display: flex;
     width: 240px;
     flex-shrink: 0;

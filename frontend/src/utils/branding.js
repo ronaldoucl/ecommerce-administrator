@@ -53,3 +53,61 @@ export function parseBranding(branding) {
 
   return { ...empty, text: raw };
 }
+
+/**
+ * Expand `#RGB` to `#RRGGBB` and uppercase it, mirroring the backend
+ * normalization (backend/src/utils/branding.js), so the swatch, the native
+ * colour input and the stored value always agree.
+ *
+ * @param {string} value - a hex colour, with or without shorthand
+ * @returns {string|null} the normalized `#RRGGBB`, or null when invalid
+ */
+export function normalizeHexColor(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) return null;
+
+  const hex = raw.slice(1);
+  const full =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : hex;
+
+  return `#${full.toUpperCase()}`;
+}
+
+/** Darken a `#RRGGBB` colour by `amount` (0–1) for hover/active states. */
+function darken(hex, amount) {
+  const value = parseInt(hex.slice(1), 16);
+  const channel = (shift) =>
+    Math.max(0, Math.round(((value >> shift) & 0xff) * (1 - amount)))
+      .toString(16)
+      .padStart(2, '0');
+
+  return `#${channel(16)}${channel(8)}${channel(0)}`.toUpperCase();
+}
+
+/**
+ * Build the inline style that applies the store's primary colour to a shell.
+ *
+ * Setting the custom properties on the wrapping element recolours every
+ * component inside it — buttons, badges, links — without touching the global
+ * theme, so an unset colour simply falls back to the theme default.
+ * `--brand-primary` is exposed as well for styles that want the brand colour
+ * explicitly rather than the themeable `--color-primary`.
+ *
+ * @param {string|null|undefined} primaryColor - the branding colour
+ * @returns {object|undefined} an inline style object, or undefined when unset
+ */
+export function brandStyle(primaryColor) {
+  const color = normalizeHexColor(primaryColor);
+  if (!color) return undefined;
+
+  return {
+    '--brand-primary': color,
+    '--color-primary': color,
+    '--color-primary-dark': darken(color, 0.15),
+  };
+}

@@ -93,7 +93,7 @@ A single line within an order. Links to the `Product` and (optionally) the `Prod
 | variant | ProductVariant? | relation |
 
 ### StoreSettings
-A **single configuration row** for the store: name, storefront text, contact info, currency, and branding. Read publicly by the storefront and edited by the admin.
+A **single configuration row** for the store: name, storefront text, contact info, currency, branding, and the customer-notification switch. Read publicly by the storefront and edited by the admin.
 
 | Field | Type | Notes |
 | ----- | ---- | ----- |
@@ -102,7 +102,20 @@ A **single configuration row** for the store: name, storefront text, contact inf
 | mainText | String? | optional |
 | contactInfo | String? | optional |
 | currency | String | `@default("USD")` |
-| branding | String? | optional (e.g. JSON string of colors/logo) |
+| branding | String? | optional — JSON string holding the logo and brand colour (see below) |
+| emailEnabled | Boolean | `@default(false)` — whether customers are emailed on an order status change |
+
+`branding` carries **both** branding values in one column, serialized as JSON:
+`{"logoUrl":"…","primaryColor":"#RRGGBB","text":"…"}`. Keys with no value are
+omitted, and an empty object is stored as `NULL`. Legacy rows holding a bare URL,
+a bare hex colour or free text are still read correctly and are normalized to the
+JSON shape on the next save — see `backend/src/utils/branding.js`.
+
+`emailEnabled` is deliberately **store configuration, not an environment
+variable**: the admin toggles it from Dashboard > Settings. Only the mailbox
+credentials (`SMTP_USER` / `SMTP_PASS`) live in the environment, because they are
+secrets. Added by migration `20260804120000_add_email_enabled_to_store_settings`
+(additive, defaulted, so existing rows keep notifications off).
 
 ## Modeling decisions
 

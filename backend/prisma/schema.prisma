@@ -21,14 +21,14 @@ model User {
 
 // A sellable product. Pricing baseline lives here; inventory lives on variants.
 model Product {
-  id          Int              @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
   description String
   benefits    String?
   basePrice   Decimal
-  isActive    Boolean          @default(true)
-  isFeatured  Boolean          @default(false)
-  createdAt   DateTime         @default(now())
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   images     ProductImage[]
   variants   ProductVariant[]
@@ -90,10 +90,13 @@ model OrderItem {
 
 // Single-row store configuration (branding, currency, storefront text).
 model StoreSettings {
-  id          Int     @id @default(autoincrement())
-  storeName   String
-  mainText    String?
-  contactInfo String?
-  currency    String  @default("USD")
-  branding    String?
+  id           Int     @id @default(autoincrement())
+  storeName    String
+  mainText     String?
+  contactInfo  String?
+  currency     String  @default("USD")
+  branding     String?
+  // Whether customers are emailed when their order changes status. Managed from
+  // the admin dashboard (Settings); the SMTP credentials stay in the environment.
+  emailEnabled Boolean @default(false)
 }

@@ -45,3 +45,18 @@
 .ghost:hover:not(:disabled) {
   background-color: var(--color-primary-light);
 }
+
+/*
+ * Destructive actions (delete, cancel an order). Outlined rather than solid red:
+ * clearly distinct from the neutral actions next to it without being alarming.
+ */
+.danger {
+  background-color: var(--color-surface);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}

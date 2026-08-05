@@ -8,6 +8,7 @@ import orderRoutes from './order.routes.js';
 import settingsRoutes from './settings.routes.js';
 import inventoryRoutes from './inventory.routes.js';
 import analyticsRoutes from './analyticsRoutes.js';
+import uploadRoutes from './uploads.routes.js';
 
 // Aggregator router — mounts every feature router under /api.
 const router = Router();
@@ -21,5 +22,6 @@ router.use('/orders', orderRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/uploads', uploadRoutes);
 
 export default router;

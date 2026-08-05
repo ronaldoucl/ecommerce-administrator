@@ -78,9 +78,63 @@
   text-overflow: ellipsis;
 }
 
+/* Desktop navigation: hidden on phones, where the hamburger takes over. */
+.nav {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.navLink,
+.navLinkActive {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.navLink:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.navLinkActive {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* Cart button + hamburger, kept together at the end of the header row. */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Navigation inside the mobile drawer. */
+.drawerNav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.drawerNav .navLink,
+.drawerNav .navLinkActive {
+  padding: var(--space-3);
+}
+
 /* Cart access button (Button rendered as a link) */
 .cartButton {
   flex-shrink: 0;
+}
+
+/* The cart word is dropped on the narrowest screens; the icon carries it. */
+@media (max-width: 24rem) {
+  .cartLabel {
+    display: none;
+  }
 }
 
 .cartCount {
@@ -141,12 +195,20 @@
   color: var(--color-text-muted);
 }
 
-/* Tablet and up: spread contact info and copyright across the row */
+/* Tablet and up: real navigation bar, no hamburger, contact info on one row */
 @media (min-width: 40rem) {
   .container,
   .headerInner {
     padding-left: var(--space-6);
     padding-right: var(--space-6);
+  }
+
+  .nav {
+    display: flex;
+  }
+
+  .menuToggle {
+    display: none;
   }
 
   .footerInner {

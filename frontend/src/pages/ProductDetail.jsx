@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 
 import Button from '../components/Button/Button';
+import ProductGallery from '../components/ProductGallery/ProductGallery';
+import { useToast } from '../components/Toast/ToastProvider';
 import { productService } from '../services';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
@@ -10,23 +12,27 @@ import styles from './ProductDetail.module.css';
 
 /**
  * Public product detail page. Loads the product from GET /api/products/:id and
- * renders an image gallery, description, benefits, price and a variant
- * selector. Picking a variant updates the displayed price (the variant's own
- * price when set, otherwise the product base price) and shows its stock.
+ * renders the multi-angle image gallery, description, benefits, price and a
+ * variant selector. Picking a variant updates the displayed price (the
+ * variant's own price when set, otherwise the product base price) and shows its
+ * stock.
+ *
+ * Adding to the cart never interrupts browsing: it raises a toast carrying the
+ * product thumbnail and a "View cart" action instead of navigating away.
  */
 function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addItem } = useCart();
   const { currency } = useSettings();
+  const toast = useToast();
 
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState('');
 
-  const [imageIndex, setImageIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
-  const [justAdded, setJustAdded] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -36,7 +42,6 @@ function ProductDetail() {
     try {
       const data = await productService.getById(id);
       setProduct(data);
-      setImageIndex(0);
       // Default to the first variant so a price and stock are shown immediately.
       setSelectedVariantId(data.variants?.[0]?.id ?? null);
     } catch (err) {
@@ -58,19 +63,33 @@ function ProductDetail() {
     if (!product) return;
 
     const variant = product.variants?.find((v) => v.id === selectedVariantId) ?? null;
+    const quantity = 1;
+    // The gallery's first image is the product's primary one.
+    const thumbnail = product.images?.[0]?.url ?? null;
 
-    addItem({
-      productId: product.id,
-      variantId: variant?.id ?? null,
-      label: variant?.label ?? null,
-      name: product.name,
-      image: product.images?.[0]?.url ?? null,
-      // The variant price overrides the base price; a null override falls back.
-      // Parse the raw Decimal string through the shared helper before storing.
-      unitPrice: parsePrice(variant?.price ?? product.basePrice),
+    addItem(
+      {
+        productId: product.id,
+        variantId: variant?.id ?? null,
+        label: variant?.label ?? null,
+        name: product.name,
+        image: thumbnail,
+        // The variant price overrides the base price; a null override falls back.
+        // Parse the raw Decimal string through the shared helper before storing.
+        unitPrice: parsePrice(variant?.price ?? product.basePrice),
+      },
+      quantity,
+    );
+
+    const name = variant?.label ? `${product.name} — ${variant.label}` : product.name;
+
+    // A stable id per product/variant line: adding the same item again replaces
+    // the toast already on screen instead of stacking near-identical ones.
+    toast.success(`${name} × ${quantity} added to cart`, {
+      id: `cart:${product.id}:${variant?.id ?? 'base'}`,
+      image: thumbnail ?? placeholderImage(product.name),
+      action: { label: 'View cart', onClick: () => navigate('/cart') },
     });
-
-    setJustAdded(true);
   };
 
   if (isLoading) {
@@ -108,7 +127,6 @@ function ProductDetail() {
 
   const images = product.images ?? [];
   const variants = product.variants ?? [];
-  const mainImage = images[imageIndex];
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
 
   // The variant's own price overrides the base price; a null override falls back.
@@ -123,33 +141,7 @@ function ProductDetail() {
 
       <div className={styles.layout}>
         {/* ── Image gallery ─────────────────────────────────────────────── */}
-        <div className={styles.gallery}>
-          <img
-            className={styles.mainImage}
-            src={mainImage?.url || placeholderImage(product.name)}
-            alt={mainImage?.alt || product.name}
-            width="800"
-            height="800"
-          />
-
-          {images.length > 1 && (
-            <ul className={styles.thumbs}>
-              {images.map((image, index) => (
-                <li key={image.id}>
-                  <button
-                    type="button"
-                    className={index === imageIndex ? styles.thumbActive : styles.thumb}
-                    onClick={() => setImageIndex(index)}
-                    aria-label={`Show image ${index + 1}`}
-                    aria-pressed={index === imageIndex}
-                  >
-                    <img src={image.url} alt={image.alt || `${product.name} thumbnail ${index + 1}`} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <ProductGallery images={images} productName={product.name} />
 
         {/* ── Details ───────────────────────────────────────────────────── */}
         <div className={styles.info}>
@@ -179,10 +171,7 @@ function ProductDetail() {
                     className={
                       variant.id === selectedVariantId ? styles.variantActive : styles.variant
                     }
-                    onClick={() => {
-                      setSelectedVariantId(variant.id);
-                      setJustAdded(false);
-                    }}
+                    onClick={() => setSelectedVariantId(variant.id)}
                     aria-pressed={variant.id === selectedVariantId}
                   >
                     {variant.label}
@@ -201,14 +190,13 @@ function ProductDetail() {
           )}
 
           <div className={styles.actions}>
+            {/*
+              The result is confirmed by a toast (thumbnail + "View cart"), so
+              nothing here interrupts browsing after an add.
+            */}
             <Button type="button" onClick={handleAddToCart} disabled={isOutOfStock}>
               {isOutOfStock ? 'Out of stock' : 'Add to cart'}
             </Button>
-            {justAdded && !isOutOfStock && (
-              <p className={styles.added} role="status">
-                Added to cart. <Link to="/cart">View cart</Link>
-              </p>
-            )}
           </div>
         </div>
       </div>

@@ -26,6 +26,12 @@
   font-weight: var(--font-weight-normal);
 }
 
+/* Label for a group of controls (the image editor) rather than a single input. */
+.fieldLabel {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
 .input,
 .textarea {
   display: block;

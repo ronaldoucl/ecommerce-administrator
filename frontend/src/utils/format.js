@@ -18,6 +18,12 @@
  * @returns {number} the parsed amount, or `NaN` when it is not a finite number
  */
 export function parsePrice(value) {
+  // Number() coerces null, '', [] and false to 0, which would render a MISSING
+  // price as a real "$0.00". Only a number or a non-empty numeric string counts;
+  // everything else is NaN so it surfaces as an em dash instead.
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+  if (typeof value !== 'string' || value.trim() === '') return NaN;
+
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : NaN;
 }
@@ -32,11 +38,41 @@ export const DEFAULT_CURRENCY = 'USD';
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 /**
- * Format a monetary value for display in the given currency, e.g. `$49.90`
- * (USD) or `EUR 49.90`.
+ * Currencies the store settings offer, with the symbol every price is rendered
+ * with. The backend stays permissive (any 3-letter uppercase code is accepted,
+ * so existing values keep working) — this list only drives the admin dropdown
+ * and the symbol used for display.
+ */
+export const SUPPORTED_CURRENCIES = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'CRC', symbol: '₡', name: 'Costa Rican Colón' },
+];
+
+/** code -> symbol, for the currencies above. */
+const CURRENCY_SYMBOLS = Object.fromEntries(
+  SUPPORTED_CURRENCIES.map(({ code, symbol }) => [code, symbol]),
+);
+
+/**
+ * The symbol a currency code is displayed with, falling back to the code itself
+ * for anything outside the supported list.
  *
- * The value is always run through {@link parsePrice} first, so a non-numeric
- * price renders as an em dash instead of leaking `NaN` onto the page.
+ * @param {string} [currency=DEFAULT_CURRENCY] - ISO-4217-like 3-letter code
+ * @returns {string} the currency symbol (e.g. `$`, `€`, `₡`)
+ */
+export function currencySymbol(currency = DEFAULT_CURRENCY) {
+  return CURRENCY_SYMBOLS[currency] ?? currency;
+}
+
+/**
+ * Format a monetary value for display in the given currency, e.g. `$49.90`
+ * (USD), `€49.90` (EUR) or `₡49.90` (CRC).
+ *
+ * Only the SYMBOL and formatting depend on the currency — the amount itself is
+ * never converted. The value is always run through {@link parsePrice} first, so
+ * a non-numeric price renders as an em dash instead of leaking `NaN` onto the
+ * page.
  *
  * @param {string|number} value - a numeric price (string or number)
  * @param {string} [currency=DEFAULT_CURRENCY] - ISO-4217-like 3-letter code
@@ -47,6 +83,16 @@ export function formatPrice(value, currency = DEFAULT_CURRENCY) {
   if (!Number.isFinite(amount)) return '—';
 
   const code = CURRENCY_PATTERN.test(currency) ? currency : DEFAULT_CURRENCY;
+
+  // Supported currencies use the store's own symbol so the storefront, the cart
+  // and the admin all render a code such as CRC identically across engines.
+  if (CURRENCY_SYMBOLS[code]) {
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+    return `${CURRENCY_SYMBOLS[code]}${formatted}`;
+  }
 
   try {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount);

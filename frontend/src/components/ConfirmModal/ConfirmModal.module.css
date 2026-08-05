@@ -1,0 +1,119 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: rgba(15, 23, 42, 0.5);
+  animation: fade-in 0.15s ease-out;
+}
+
+.dialog {
+  width: 100%;
+  /* Fits a 375px screen with the backdrop padding still visible. */
+  max-width: 26rem;
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: pop-in 0.15s ease-out;
+}
+
+.dialog:focus {
+  outline: none;
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+
+.message {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Consequence line: what will actually happen if the user confirms. */
+.warning {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background-color: #fff7ed;
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.error {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.875em;
+  height: 0.875em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .dialog {
+    animation: none;
+  }
+
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* Phones: full-width stacked buttons, confirm last so it is the closest to the thumb. */
+@media (max-width: 30rem) {
+  .dialog {
+    padding: var(--space-4);
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actionButton {
+    width: 100%;
+  }
+}

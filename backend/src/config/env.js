@@ -41,7 +41,35 @@ export const config = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
+  // Customer notification emails (see src/services/emailService.js). Only the
+  // Gmail credentials live here — the host and port are fixed by the provider,
+  // and the on/off switch is store configuration, edited from the admin
+  // dashboard and stored in StoreSettings.emailEnabled.
+  email: {
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+  },
+  // Cloudinary hosts the product images uploaded from the admin panel. It is
+  // optional: without credentials the upload endpoint reports that it is not
+  // configured and the admin can still paste image URLs by hand.
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    // Folder every upload lands in, so the store's assets stay grouped.
+    folder: process.env.CLOUDINARY_FOLDER || 'ecommerce-administrator/products',
+  },
 };
+
+// True only when both Gmail credentials are present. The admin dashboard reads
+// this (as `emailConfigured`) to explain why the notification switch cannot be
+// turned on yet.
+config.email.configured = Boolean(config.email.user && config.email.pass);
+
+// True only when all three Cloudinary credentials are present.
+config.cloudinary.enabled = Boolean(
+  config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret,
+);
 
 // Fail fast at boot when a required secret is missing, instead of letting it surface
 // later as an obscure runtime failure (an empty JWT secret makes every login throw).

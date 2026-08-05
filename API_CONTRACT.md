@@ -233,9 +233,36 @@ not a database column.
 
 ---
 
+### Product images (`images`)
+
+Products carry an **ordered** gallery, sent and returned as `images`:
+
+```json
+"images": [
+  { "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" },
+  { "url": "https://cdn.store.com/aurora-2.jpg", "alt": "Back view" }
+]
+```
+
+| Rule | Detail |
+| --- | --- |
+| Order | **Meaningful.** The array order is the gallery order, and the **first entry is the primary image**. `ProductImage` has no position column, so the order is preserved as row creation order and every read returns it sorted by `id`. |
+| `url` | Required. Absolute `http`/`https` URL, at most 2048 characters. Either pasted by hand or obtained from [`POST /api/uploads/image`](#post-apiuploadsimage). |
+| `alt` | Optional string (max 200 characters) or `null`. |
+| Count | At most 10 images per product. |
+| Empty | `"images": []` is valid and clears the gallery. A product with no images is fine; the storefront renders a placeholder. |
+
+On **create** the images are attached inline. On **update** the stored gallery is
+**synced to match the array exactly**, inside the same transaction as the product
+update: entries no longer present are removed, new ones are created, and the
+resulting order matches the array. Omitting `images` from an update leaves the
+gallery untouched.
+
+---
+
 ### POST /api/products
 - **Access:** Protected/JWT
-- **Description:** Create a new product. Images can be attached inline.
+- **Description:** Create a new product. Images can be attached inline (see [Product images](#product-images-images)).
 
 **Request body**
 ```json
@@ -291,9 +318,17 @@ not a database column.
 {
   "name": "Aurora Hoodie v2",
   "basePrice": "52.00",
-  "isFeatured": true
+  "isFeatured": true,
+  "images": [
+    { "url": "https://cdn.store.com/aurora-2.jpg", "alt": "Back view" },
+    { "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
+  ]
 }
 ```
+
+When `images` is present the gallery is synced to match it exactly (see
+[Product images](#product-images-images)); when it is omitted the gallery is left
+as it is.
 
 **Success — `200 OK`**
 ```json
@@ -710,7 +745,27 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
 { "status": "confirmed" }
 ```
 
-**Success — `200 OK`** — the full order (same shape as `GET /api/orders/:id`) with the new status.
+**Success — `200 OK`** — the full order (same shape as `GET /api/orders/:id`) with the new status, plus two fields describing the customer notification email:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `emailSent` | boolean | `true` when the customer was emailed about the new status. |
+| `emailError` | string \| null | Why the email was not sent, or `null`. It is `null` **and** `emailSent` is `false` when email notifications are simply disabled (`emailEnabled: false` in the store settings, the default) — that is not an error. |
+
+```json
+{
+  "id": 42,
+  "reference": "ORD-20260728-0042",
+  "status": "cancelled",
+  "emailSent": false,
+  "emailError": null
+}
+```
+
+**The status change always commits regardless of the email outcome.** The email is
+attempted only after the transaction has been committed and can never roll it
+back — these two fields only report what happened. Every pre-existing field of
+the order is returned unchanged.
 
 **Error — `400 Bad Request`** (unknown/missing status)
 ```json
@@ -750,9 +805,16 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
   "mainText": "Welcome to Aurora — quality apparel.",
   "contactInfo": "support@store.com | +1 555 0100",
   "currency": "USD",
-  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}"
+  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}",
+  "emailEnabled": false,
+  "emailConfigured": true
 }
 ```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `emailEnabled` | boolean | Whether customers are emailed when their order status changes. Editable from the admin dashboard. |
+| `emailConfigured` | boolean | **Read-only, not a column.** Whether the server has the Gmail credentials (`SMTP_USER` / `SMTP_PASS`) the notifications need. When `false`, turning `emailEnabled` on has no effect and `PATCH /api/orders/:id/status` reports the missing credentials in `emailError`. Sending it back on `PUT` is rejected. |
 
 ---
 
@@ -767,7 +829,8 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
   "mainText": "Winter collection is here.",
   "contactInfo": "support@store.com | +1 555 0100",
   "currency": "USD",
-  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}"
+  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}",
+  "emailEnabled": true
 }
 ```
 
@@ -777,9 +840,51 @@ Monetary values (`totalAmount`, `unitPrice`, `lineTotal`) are strings to preserv
 | `currency` | yes | exactly 3 uppercase letters (`USD`, `EUR`, `CRC`) |
 | `mainText` | no | string up to 2000 characters, or `null` to clear |
 | `contactInfo` | no | string up to 500 characters, or `null` to clear |
-| `branding` | no | string up to 500 characters (logo URL or color string), or `null` to clear |
+| `branding` | no | string up to 500 characters holding the branding JSON (see below), or `null` to clear |
+| `logoUrl` | no | absolute `http`/`https` URL up to 300 characters, or `""`/`null` to remove the logo. **Not a column** — stored inside `branding` |
+| `primaryColor` | no | hex colour `#RGB` or `#RRGGBB` (normalized to uppercase `#RRGGBB`), or `""`/`null` to fall back to the default theme colour. **Not a column** — stored inside `branding` |
+| `emailEnabled` | no | strict boolean (`true` / `false` — a string such as `"true"` is rejected). Omitted means `false` |
 
-Optional fields that are omitted are stored as `null`. Any property outside the table above is rejected instead of being ignored.
+Optional fields that are omitted are stored as `null` (`emailEnabled`, being a boolean column, becomes `false`). Any property outside the table above is rejected instead of being ignored — including the read-only `emailConfigured` returned by `GET`.
+
+Because this endpoint replaces the whole row, a client that edits one field must send the others too, `emailEnabled` included, or they are cleared.
+
+#### The `branding` contract
+
+The schema keeps a single `StoreSettings.branding` text column, so the logo and
+the brand colour are both serialized into it as a small JSON object:
+
+```json
+"branding": "{\"logoUrl\":\"https://cdn.store.com/logo.png\",\"primaryColor\":\"#4F46E5\"}"
+```
+
+| Key | Meaning |
+| --- | --- |
+| `logoUrl` | Logo shown in the storefront (and admin) header. Absent when no logo is set. |
+| `primaryColor` | Accent colour applied to the storefront, as uppercase `#RRGGBB`. Absent when unset. |
+| `text` | Optional short tagline shown in the storefront footer. Absent when unset. |
+
+Keys with no value are omitted entirely, and a branding object with nothing in it
+is stored as `null` rather than `"{}"`.
+
+**Writing.** Send `logoUrl` / `primaryColor` — they are validated individually and
+serialized into `branding` for you. If a raw `branding` string is sent in the same
+request, `logoUrl` / `primaryColor` win and the rest of the raw value (a `text`
+tagline) is preserved.
+
+**Backward compatibility.** A legacy `branding` value is never rejected and never
+crashes a read. Sent on its own, it is parsed heuristically and normalized into
+the JSON shape above on that save:
+
+| Legacy value | Interpreted as |
+| --- | --- |
+| `"https://cdn.store.com/logo.png"` | `{"logoUrl":"https://cdn.store.com/logo.png"}` |
+| `"#4F46E5"` | `{"primaryColor":"#4F46E5"}` |
+| `"Quality apparel since 2019"` | `{"text":"Quality apparel since 2019"}` |
+
+**Reading.** `GET /api/settings` returns `branding` as the raw stored string; the
+client parses it (the same heuristics apply, so a not-yet-normalized legacy row
+still renders correctly).
 
 **Success — `200 OK`**
 ```json
@@ -789,7 +894,9 @@ Optional fields that are omitted are stored as `null`. Any property outside the 
   "mainText": "Winter collection is here.",
   "contactInfo": "support@store.com | +1 555 0100",
   "currency": "USD",
-  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}"
+  "branding": "{\"primaryColor\":\"#4F46E5\",\"logoUrl\":\"https://cdn.store.com/logo.png\"}",
+  "emailEnabled": true,
+  "emailConfigured": true
 }
 ```
 
@@ -826,6 +933,64 @@ Optional fields that are omitted are stored as `null`. Any property outside the 
 **Error — `401 Unauthorized`**
 ```json
 { "message": "Missing or malformed Authorization header" }
+```
+
+---
+
+## Uploads
+
+### POST /api/uploads/image
+- **Access:** Protected/JWT
+- **Description:** Host an image file and return its URL, ready to be placed in a product's [`images`](#product-images-images) array.
+
+This endpoint **does not touch the database**. Uploading and saving a product are
+two separate steps: upload first, then send the returned `url` in the product's
+`images` array like any hand-pasted URL. Pasting a URL directly remains fully
+supported, so a store with no image host configured still works.
+
+**Request:** `multipart/form-data` with a single `file` field.
+
+| Rule | Detail |
+| --- | --- |
+| Field name | `file` — exactly one per request. |
+| Content type | `image/jpeg`, `image/png`, `image/webp`, `image/gif` or `image/avif`. Anything else is rejected. |
+| Size | At most 5 MB. |
+
+**Success — `201 Created`**
+```json
+{
+  "url": "https://res.cloudinary.com/demo/image/upload/v1/ecommerce-administrator/products/abc123.jpg",
+  "publicId": "ecommerce-administrator/products/abc123",
+  "width": 1200,
+  "height": 1200,
+  "format": "jpg",
+  "bytes": 184320
+}
+```
+
+**Error — `400 Bad Request`** (no file sent)
+```json
+{ "message": "Validation failed: an image file is required in the \"file\" field" }
+```
+
+**Error — `400 Bad Request`** (unsupported type)
+```json
+{ "message": "Validation failed: file type must be one of: image/jpeg, image/png, image/webp, image/gif, image/avif" }
+```
+
+**Error — `400 Bad Request`** (too large)
+```json
+{ "message": "Validation failed: file must be at most 5 MB" }
+```
+
+**Error — `401 Unauthorized`**
+```json
+{ "message": "Missing or malformed Authorization header" }
+```
+
+**Error — `503 Service Unavailable`** (no image host configured on the server)
+```json
+{ "message": "Image uploads are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET, or paste an image URL instead." }
 ```
 
 ---

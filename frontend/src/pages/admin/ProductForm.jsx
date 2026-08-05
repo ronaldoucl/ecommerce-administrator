@@ -3,6 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import Card from '../../components/Card/Card';
 import Button from '../../components/Button/Button';
+import ImageManager, {
+  imageUrlError,
+  toImagePayload,
+} from '../../components/ImageManager/ImageManager';
+import { useToast } from '../../components/Toast/ToastProvider';
 import { productService } from '../../services';
 import VariantManager from './VariantManager';
 import styles from './ProductForm.module.css';
@@ -24,15 +29,20 @@ const EMPTY_FORM = {
  * and `/admin/products/:id/edit`; the presence of a route `id` decides the mode.
  *
  * In edit mode the current product is loaded to prefill the form and its
- * variants are managed inline through <VariantManager>. Fields are validated on
- * the client before submitting, and server `{ message }` errors are surfaced.
+ * variants are managed inline through <VariantManager>. The product gallery is
+ * edited with <ImageManager> and sent as an ORDERED `images` array, where the
+ * first entry is the primary image. Fields are validated on the client before
+ * submitting, and server `{ message }` errors are surfaced.
  */
 function ProductForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [form, setForm] = useState(EMPTY_FORM);
+  // Gallery rows, kept separate from the scalar fields: [{ url, alt }, ...].
+  const [images, setImages] = useState([]);
   const [initialVariants, setInitialVariants] = useState([]);
 
   // Initial product load (edit mode only).
@@ -61,6 +71,9 @@ function ProductForm() {
         isActive: Boolean(product.isActive),
         isFeatured: Boolean(product.isFeatured),
       });
+      setImages(
+        (product.images ?? []).map((image) => ({ url: image.url ?? '', alt: image.alt ?? '' })),
+      );
       setInitialVariants(product.variants ?? []);
     } catch (err) {
       setLoadError(err.message || 'Unable to load the product.');
@@ -92,6 +105,11 @@ function ProductForm() {
       errors.basePrice = 'Base price must be a positive number (e.g. 49.90).';
     }
 
+    // Blank gallery rows are ignored on save; anything typed must be a real URL.
+    if (images.some((image) => imageUrlError(image.url))) {
+      errors.images = 'Every image row must hold a full http(s) URL, or be removed.';
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -111,21 +129,32 @@ function ProductForm() {
       basePrice: form.basePrice.trim(),
       isActive: form.isActive,
       isFeatured: form.isFeatured,
+      // Sent in the exact order shown in the editor; the backend syncs the
+      // gallery to match it and treats the first entry as the primary image.
+      images: toImagePayload(images),
     };
 
     setIsSubmitting(true);
 
     try {
       if (isEdit) {
-        await productService.update(id, payload);
+        const updated = await productService.update(id, payload);
+        // Reflect what was actually stored (ids and order) back into the editor.
+        setImages(
+          (updated.images ?? []).map((image) => ({ url: image.url ?? '', alt: image.alt ?? '' })),
+        );
         setSavedMessage('Product saved.');
+        toast.success('Product saved.');
       } else {
         const created = await productService.create(payload);
+        toast.success(`"${created.name}" created.`);
         // Jump into edit mode so variants can be added to the new product.
         navigate(`/admin/products/${created.id}/edit`, { replace: true });
       }
     } catch (err) {
-      setSubmitError(err.message || 'The product could not be saved.');
+      const message = err.message || 'The product could not be saved.';
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -222,6 +251,14 @@ function ProductForm() {
               <span className={styles.fieldError}>{fieldErrors.basePrice}</span>
             )}
           </label>
+
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Images</span>
+            <ImageManager images={images} onChange={setImages} disabled={isSubmitting} />
+            {fieldErrors.images && (
+              <span className={styles.fieldError}>{fieldErrors.images}</span>
+            )}
+          </div>
 
           <div className={styles.checkboxes}>
             <label className={styles.checkbox}>

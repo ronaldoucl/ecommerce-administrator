@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { notFound } from '../utils/httpError.js';
 import { assertValidTransition } from '../validators/order.validator.js';
+import { sendOrderStatusEmail } from './emailService.js';
 
 // Order service — the ONLY place the admin order flow touches Prisma.
 //
@@ -81,7 +82,29 @@ export async function getOrderById(id) {
 // PATCH /api/orders/:id/status — validate the transition and persist it. Cancelling
 // (transition INTO "cancelled") restores each line's quantity to its variant stock.
 // The status update and stock restoration run in ONE transaction so they cannot drift.
+//
+// AFTER the transaction has committed, the customer notification email is
+// attempted. It is deliberately outside the transaction and cannot fail the
+// request: the status change is already durable, so the outcome is only
+// REPORTED to the client as `emailSent` / `emailError`.
 export async function updateOrderStatus(id, newStatus) {
+  const order = await runStatusTransition(id, newStatus);
+
+  // sendOrderStatusEmail never throws; the extra guard keeps that guarantee
+  // local even if the implementation behind it changes.
+  let email = { sent: false, error: null };
+  try {
+    email = await sendOrderStatusEmail({ order, newStatus });
+  } catch (err) {
+    email = { sent: false, error: err?.message || 'The notification email could not be sent.' };
+  }
+
+  return { ...order, emailSent: Boolean(email.sent), emailError: email.error ?? null };
+}
+
+// The transactional part of the status change: guard, restore stock when
+// cancelling, persist, and return the updated order in the detail shape.
+async function runStatusTransition(id, newStatus) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id },
