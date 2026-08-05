@@ -71,9 +71,33 @@ export function buildOrderStatusMessage(order, newStatus) {
 const GMAIL_SMTP = { host: 'smtp.gmail.com', port: 465, secure: true };
 
 /**
+ * How long each stage of the SMTP conversation may take.
+ *
+ * These MATTER: the admin's status-change request waits for the send, so
+ * nodemailer's defaults (minutes) would leave the dashboard stuck on "Working…"
+ * while a flaky connection hangs. Ten seconds is generous for a healthy Gmail
+ * connection (a real one completes in well under a second) and fails fast
+ * otherwise.
+ */
+const SMTP_TIMEOUTS = {
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
+};
+
+/**
+ * Absolute ceiling for one notification attempt, covering everything the
+ * transport might do (DNS, TLS, auth, send). It is the last line of defence for
+ * the API's response time: whatever happens to the mail server, the status
+ * change is already committed and the client hears back promptly.
+ */
+const SEND_DEADLINE_MS = 12000;
+
+/**
  * The transport is created once and reused, so a burst of status changes does
- * not open a new SMTP connection each time. It is created lazily: a store with
- * notifications switched off never builds one at all.
+ * not rebuild it each time. It is created lazily: a store with notifications
+ * switched off never builds one at all. The transport is not pooled, so every
+ * send opens its own connection and a previous failure cannot poison the next.
  */
 let transport = null;
 
@@ -81,10 +105,42 @@ function getTransport() {
   if (!transport) {
     transport = nodemailer.createTransport({
       ...GMAIL_SMTP,
+      ...SMTP_TIMEOUTS,
       auth: { user: config.email.user, pass: config.email.pass },
     });
   }
   return transport;
+}
+
+/** Reject if `promise` has not settled within `ms`. */
+function withDeadline(promise, ms) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('the mail server did not respond in time')),
+      ms,
+    );
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Turn a transport failure into something an admin can act on. Nodemailer's own
+ * wording ("Connection timeout") says nothing about what to do next.
+ */
+function describeSendFailure(err) {
+  const code = err?.code;
+
+  if (code === 'EAUTH') {
+    return 'the mailbox rejected the credentials — check SMTP_USER and that SMTP_PASS is a current Google app password.';
+  }
+  if (code === 'ETIMEDOUT' || code === 'ECONNECTION' || code === 'ESOCKET' || code === 'EDNS') {
+    return 'the mail server could not be reached (network or firewall). The order status was still updated — you can retry the notification by changing the status again.';
+  }
+  if (code === 'EENVELOPE') {
+    return 'the customer address was rejected by the mail server.';
+  }
+  return err?.message || 'the notification email could not be sent.';
 }
 
 /**
@@ -106,8 +162,18 @@ async function sendViaProvider(message) {
 
   // Gmail rewrites the sender to the authenticated account anyway, so the
   // credentials are the single source of truth for the From address.
-  await getTransport().sendMail({ from: config.email.user, ...message });
-  return { sent: true, error: null };
+  //
+  // Bounded by SEND_DEADLINE_MS so a hanging mail server can never hold the
+  // admin's status-change response open (the change itself is already stored).
+  try {
+    await withDeadline(
+      getTransport().sendMail({ from: config.email.user, ...message }),
+      SEND_DEADLINE_MS,
+    );
+    return { sent: true, error: null };
+  } catch (err) {
+    return { sent: false, error: describeSendFailure(err) };
+  }
 }
 
 /**
