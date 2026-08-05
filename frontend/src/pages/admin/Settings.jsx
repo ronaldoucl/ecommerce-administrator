@@ -431,7 +431,7 @@ function Settings() {
             <span className={styles.hint} id="emailEnabled-hint">
               {emailConfigured
                 ? 'The customer is notified on every status change. With this off the status change still happens — the customer is simply not emailed.'
-                : 'Unavailable: the server has no email sender configured. Set BREVO_API_KEY and MAIL_FROM_EMAIL in the backend environment (or SMTP_USER and SMTP_PASS for local SMTP), then restart the backend.'}
+                : 'Unavailable: the server has no email sender configured. Set BREVO_API_KEY and MAIL_FROM_EMAIL in the backend environment, then restart the backend.'}
             </span>
           </fieldset>
 

@@ -113,7 +113,7 @@ JSON shape on the next save — see `backend/src/utils/branding.js`.
 
 `emailEnabled` is deliberately **store configuration, not an environment
 variable**: the admin toggles it from Dashboard > Settings. Only the mailbox
-credentials (`SMTP_USER` / `SMTP_PASS`) live in the environment, because they are
+credentials (`BREVO_API_KEY` / `MAIL_FROM_EMAIL`) live in the environment, because they are
 secrets. Added by migration `20260804120000_add_email_enabled_to_store_settings`
 (additive, defaulted, so existing rows keep notifications off).
 

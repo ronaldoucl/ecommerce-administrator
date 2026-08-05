@@ -45,16 +45,14 @@ export const config = {
   // Gmail credentials live here — the host and port are fixed by the provider,
   // and the on/off switch is store configuration, edited from the admin
   // dashboard and stored in StoreSettings.emailEnabled.
+  // Customer notification emails go out through Brevo's HTTP API (plain HTTPS,
+  // so it works on hosts that block outbound SMTP ports — Render's free plan
+  // blocks 25/465/587). The on/off switch is NOT here: it is store
+  // configuration, edited from the admin dashboard (StoreSettings.emailEnabled).
   email: {
-    // Preferred transport: Brevo's HTTP API. It is plain HTTPS, so it works on
-    // hosts that block outbound SMTP ports (Render's free plan blocks 25/465/587).
     apiKey: process.env.BREVO_API_KEY || '',
     fromEmail: process.env.MAIL_FROM_EMAIL || '',
     fromName: process.env.MAIL_FROM_NAME || 'Store',
-    // Fallback transport: direct SMTP. Handy for local development, where the
-    // ports are open and a plain Gmail app password is enough.
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
   },
   // Cloudinary hosts the product images uploaded from the admin panel. It is
   // optional: without credentials the upload endpoint reports that it is not
@@ -68,15 +66,10 @@ export const config = {
   },
 };
 
-// Which transports the server can actually use. The HTTP API is preferred when
-// both are available, because it works everywhere; SMTP is the local fallback.
-config.email.httpConfigured = Boolean(config.email.apiKey && config.email.fromEmail);
-config.email.smtpConfigured = Boolean(config.email.user && config.email.pass);
-
-// True when the server can send at all, by either route. The admin dashboard
-// reads this (as `emailConfigured`) to explain why the notification switch
-// cannot be turned on yet.
-config.email.configured = config.email.httpConfigured || config.email.smtpConfigured;
+// True only when the server can actually send: both the API key and a From
+// address are needed. The admin dashboard reads this (as `emailConfigured`) to
+// explain why the notification switch cannot be turned on yet.
+config.email.configured = Boolean(config.email.apiKey && config.email.fromEmail);
 
 // True only when all three Cloudinary credentials are present.
 config.cloudinary.enabled = Boolean(

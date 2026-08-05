@@ -814,7 +814,7 @@ the order is returned unchanged.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `emailEnabled` | boolean | Whether customers are emailed when their order status changes. Editable from the admin dashboard. |
-| `emailConfigured` | boolean | **Read-only, not a column.** Whether the server has the Gmail credentials (`SMTP_USER` / `SMTP_PASS`) the notifications need. When `false`, turning `emailEnabled` on has no effect and `PATCH /api/orders/:id/status` reports the missing credentials in `emailError`. Sending it back on `PUT` is rejected. |
+| `emailConfigured` | boolean | **Read-only, not a column.** Whether the server has the email credentials (`BREVO_API_KEY` / `MAIL_FROM_EMAIL`) the notifications need. When `false`, turning `emailEnabled` on has no effect and `PATCH /api/orders/:id/status` reports the missing credentials in `emailError`. Sending it back on `PUT` is rejected. |
 
 ---
 

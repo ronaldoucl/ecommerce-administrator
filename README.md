@@ -30,7 +30,7 @@ request after idle can take 30–60 seconds. Open `<BACKEND_URL>/api/health` onc
 | Database | PostgreSQL |
 | ORM | Prisma 6 |
 | Auth | JWT (`jsonwebtoken`) + `bcryptjs` password hashing |
-| Email | SMTP via `nodemailer` (optional — off by default) |
+| Email | Brevo HTTP API via `fetch` (optional — off by default, no npm package) |
 | Image hosting | Cloudinary via `cloudinary` + `multer` (optional — pasting URLs always works) |
 | Frontend hosting | Vercel |
 | Backend hosting | Render (Railway works with the same build/start commands) |
@@ -155,7 +155,9 @@ cp .env.example .env
 | `PORT` | no | Defaults to `4000`. Render injects its own — do not set it there. |
 | `LOW_STOCK_THRESHOLD` | no | Variants at or below this stock are flagged low. Integer, defaults to `5`. |
 | `CLIENT_ORIGIN` | no | Comma-separated allowed CORS origins. Defaults to `http://localhost:5173`. Any `*.vercel.app` origin is always allowed. |
-| `SMTP_USER` / `SMTP_PASS` | no | Gmail mailbox used to notify customers on an order status change. `SMTP_PASS` is a 16-character **app password**, not the account password. Without them the notification switch in **Dashboard > Settings** stays unavailable: status changes still work and the API reports `"emailSent": false`. The switch itself is store configuration (`StoreSettings.emailEnabled`), not an environment variable. |
+| `BREVO_API_KEY` / `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME` | no | Customer notification emails, sent through Brevo's HTTP API with `fetch` (no npm package). `MAIL_FROM_EMAIL` must be an address **verified as a sender in Brevo**, or the send is refused with an explanation. HTTP rather than SMTP because Render's free plan blocks the outbound SMTP ports. |
+
+Without these, the notification switch in **Dashboard > Settings** stays unavailable: status changes still work and the API reports `"emailSent": false`. The switch itself is store configuration (`StoreSettings.emailEnabled`), not an environment variable.
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | no | Enable uploading product images from the admin panel. Without them the upload button reports that uploads are not configured and image URLs can still be pasted by hand. |
 | `CLOUDINARY_FOLDER` | no | Folder uploads land in. Defaults to `ecommerce-administrator/products`. |
 | `NODE_ENV` | no | Do not set by hand — hosting platforms set it. When it is anything other than `production`, Prisma logs queries to the console. Leave it unset locally. |
