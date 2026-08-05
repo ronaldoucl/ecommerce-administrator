@@ -8,7 +8,14 @@ settings and analytics.
 Checkout is **simulated**: an order is created and stock is decremented, but no payment is taken
 and no card details are collected.
 
-**Authors:** Ronaldo Campos Lucas and Jean Lucas Castillo — students at BYU–Idaho.
+## Authors
+
+Built by **Ronaldo Campos Lucas** and **Jean Lucas Castillo**, students at BYU–Idaho.
+
+- **Ronaldo**
+  > "Each day is a day of decision, and our decisions determine our destiny" — Russell M. Nelson
+- **Lucas**
+  > "Time doesn't heal anything, it just teaches us how to live with pain" — Itachi Uchiha
 
 ## Live demo
 
@@ -57,8 +64,10 @@ Every page is responsive and verified at 375px, 768px and 1280px.
 Three tiers: **browser → REST API → PostgreSQL**.
 
 ```text
-React + Vite      ──HTTPS/JSON──▶   Express API      ──Prisma──▶   PostgreSQL
-   (Vercel)                            (Render)                      (Render)
+┌─────────────────┐              ┌─────────────────┐              ┌─────────────────┐
+│  React + Vite   │  HTTPS/JSON  │   Express API   │    Prisma    │   PostgreSQL    │
+│    (Vercel)     │─────────────▶│    (Render)     │─────────────▶│    (Render)     │
+└─────────────────┘              └─────────────────┘              └─────────────────┘
 ```
 
 The backend dependency direction is strictly one-way: `routes → controllers → services → Prisma`.
