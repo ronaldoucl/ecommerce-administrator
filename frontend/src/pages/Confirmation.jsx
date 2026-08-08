@@ -5,6 +5,7 @@ import Card from '../components/Card/Card';
 import Button from '../components/Button/Button';
 import { useSettings } from '../context/SettingsContext';
 import { formatPrice } from '../utils/format';
+import { displayVariantLabel } from '../utils/variants';
 import styles from './Confirmation.module.css';
 
 // Finds the order for this page, in this order:
@@ -142,20 +143,22 @@ function Confirmation() {
         </dl>
 
         <ul className={styles.lines}>
-          {items.map((item, index) => (
-            <li key={`${item.variantLabel ?? item.productName}:${index}`} className={styles.line}>
-              <div className={styles.lineInfo}>
-                <p className={styles.lineName}>{item.productName}</p>
-                {item.variantLabel && (
-                  <p className={styles.lineVariant}>{item.variantLabel}</p>
-                )}
-                <p className={styles.lineMeta}>
-                  {formatPrice(item.unitPrice, currency)} × {item.quantity}
-                </p>
-              </div>
-              <p className={styles.lineTotal}>{formatPrice(item.lineTotal, currency)}</p>
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const variantLabel = displayVariantLabel(item.variantLabel);
+
+            return (
+              <li key={`${item.variantLabel ?? item.productName}:${index}`} className={styles.line}>
+                <div className={styles.lineInfo}>
+                  <p className={styles.lineName}>{item.productName}</p>
+                  {variantLabel && <p className={styles.lineVariant}>{variantLabel}</p>}
+                  <p className={styles.lineMeta}>
+                    {formatPrice(item.unitPrice, currency)} × {item.quantity}
+                  </p>
+                </div>
+                <p className={styles.lineTotal}>{formatPrice(item.lineTotal, currency)}</p>
+              </li>
+            );
+          })}
         </ul>
 
         <div className={styles.totalRow}>

@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "build": "prisma migrate deploy && prisma generate"
+    "build": "prisma migrate deploy && prisma generate",
+    "backfill:variants": "node scripts/backfillDefaultVariants.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

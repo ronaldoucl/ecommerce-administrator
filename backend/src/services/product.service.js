@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { config } from '../config/env.js';
 import { notFound } from '../utils/httpError.js';
+import { DEFAULT_VARIANT_LABEL } from '../utils/variants.js';
 
 // All the product logic. Nothing else touches Prisma for products.
 //
@@ -83,6 +84,9 @@ export async function getProductById(id) {
   return withStockFlags(product);
 }
 
+// Every product is born with a "Default" variant, so it is sellable from the
+// moment it is created. Adding real variants (sizes, colours) is done afterwards
+// from the product page, and the default one can be renamed or deleted then.
 export async function createProduct(data) {
   const { images, ...productData } = data;
 
@@ -91,6 +95,7 @@ export async function createProduct(data) {
       data: {
         ...productData,
         ...(images?.length ? { images: { create: images } } : {}),
+        variants: { create: [{ label: DEFAULT_VARIANT_LABEL }] },
       },
       include: productInclude,
     });
@@ -153,6 +158,13 @@ export async function updateProduct(id, data) {
 
     if (images !== undefined) {
       await syncProductImages(tx, id, images);
+    }
+
+    // Products created before the default-variant rule have none, which makes
+    // them impossible to buy. Give them one on the next save.
+    const variantCount = await tx.productVariant.count({ where: { productId: id } });
+    if (variantCount === 0) {
+      await tx.productVariant.create({ data: { productId: id, label: DEFAULT_VARIANT_LABEL } });
     }
 
     const updated = await tx.product.update({

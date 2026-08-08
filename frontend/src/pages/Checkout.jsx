@@ -59,6 +59,14 @@ function Checkout() {
     [items],
   );
 
+  // Carts saved before every product had a variant can still hold lines with no
+  // variantId. The backend rejects those, so we say what to do instead of showing
+  // a validation error nobody can act on.
+  const hasLineWithoutVariant = useMemo(
+    () => items.some((line) => !Number.isInteger(line.variantId) || line.variantId <= 0),
+    [items],
+  );
+
   const setField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
     // Clear a field's error as soon as the user edits it.
@@ -121,6 +129,13 @@ function Checkout() {
     if (hasInvalidQuantity) {
       setSubmitError(
         `Every item must have a quantity between ${QTY_MIN} and ${QTY_MAX}. Adjust your cart and try again.`,
+      );
+      return;
+    }
+
+    if (hasLineWithoutVariant) {
+      setSubmitError(
+        'Some items in your cart are out of date. Remove them and add them again from the product page.',
       );
       return;
     }

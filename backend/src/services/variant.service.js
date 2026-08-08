@@ -21,10 +21,21 @@ export async function updateVariant(id, data) {
 }
 
 // Real delete, unlike products. But if any order references the variant we
-// refuse with 409, otherwise we would wreck that order's history.
+// refuse with 409, otherwise we would wreck that order's history. We also refuse
+// to delete the last one: a product with no variants has no stock and cannot be
+// bought at all.
 export async function deleteVariant(id) {
   const existing = await prisma.productVariant.findUnique({ where: { id } });
   if (!existing) throw notFound('Variant not found');
+
+  const siblingCount = await prisma.productVariant.count({
+    where: { productId: existing.productId },
+  });
+  if (siblingCount <= 1) {
+    throw conflict(
+      'A product must keep at least one variant. Add another one before deleting this.',
+    );
+  }
 
   const orderItemCount = await prisma.orderItem.count({ where: { variantId: id } });
   if (orderItemCount > 0) {

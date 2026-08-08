@@ -263,6 +263,7 @@ gallery untouched.
 ### POST /api/products
 - **Access:** Protected/JWT
 - **Description:** Create a new product. Images can be attached inline (see [Product images](#product-images-images)).
+- **Note:** Stock lives on variants and checkout is variant-based, so every product is created with one `"Default"` variant (stock `0`). Add real variants afterwards; the default one can then be renamed or deleted. A product can never be left with zero variants.
 
 **Request body**
 ```json
@@ -293,7 +294,9 @@ gallery untouched.
   "images": [
     { "id": 1, "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
   ],
-  "variants": []
+  "variants": [
+    { "id": 31, "label": "Default", "price": null, "stock": 0, "productId": 10 }
+  ]
 }
 ```
 
@@ -472,7 +475,7 @@ Inventory lives on the variant (`ProductVariant.stock`).
 
 ### DELETE /api/variants/:id
 - **Access:** Protected/JWT
-- **Description:** Hard-delete a variant. Blocked when the variant is already referenced by an order, so deleting it cannot destroy order history.
+- **Description:** Hard-delete a variant. Blocked when the variant is already referenced by an order, so deleting it cannot destroy order history, and blocked when it is the product's last variant, which would leave the product with no stock and impossible to buy.
 
 **Request body:** none.
 
@@ -494,6 +497,11 @@ Inventory lives on the variant (`ProductVariant.stock`).
 **Error — `409 Conflict`** (variant belongs to an existing order)
 ```json
 { "message": "Variant cannot be deleted because it belongs to existing orders" }
+```
+
+**Error — `409 Conflict`** (last variant of the product)
+```json
+{ "message": "A product must keep at least one variant. Add another one before deleting this." }
 ```
 
 ---

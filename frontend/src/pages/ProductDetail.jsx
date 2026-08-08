@@ -8,6 +8,7 @@ import { productService } from '../services';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { formatPrice, parsePrice, placeholderImage } from '../utils/format';
+import { displayVariantLabel } from '../utils/variants';
 import styles from './ProductDetail.module.css';
 
 // The product page: gallery, description, benefits, price and the variant
@@ -59,30 +60,34 @@ function ProductDetail() {
     if (!product) return;
 
     const variant = product.variants?.find((v) => v.id === selectedVariantId) ?? null;
+    if (!variant) return;
+
     const quantity = 1;
     // The first image is the main one.
     const thumbnail = product.images?.[0]?.url ?? null;
+    // A "Default" variant is not worth showing in the cart.
+    const label = displayVariantLabel(variant.label);
 
     addItem(
       {
         productId: product.id,
-        variantId: variant?.id ?? null,
-        label: variant?.label ?? null,
+        variantId: variant.id,
+        label,
         name: product.name,
         image: thumbnail,
         // Variant price wins; null means fall back to the product price. Run it
         // through parsePrice first, since it arrives as a string.
-        unitPrice: parsePrice(variant?.price ?? product.basePrice),
+        unitPrice: parsePrice(variant.price ?? product.basePrice),
       },
       quantity,
     );
 
-    const name = variant?.label ? `${product.name} — ${variant.label}` : product.name;
+    const name = label ? `${product.name} — ${label}` : product.name;
 
     // Same id for the same product+variant, so adding it twice replaces the
     // toast instead of stacking two almost identical ones.
     toast.success(`${name} × ${quantity} added to cart`, {
-      id: `cart:${product.id}:${variant?.id ?? 'base'}`,
+      id: `cart:${product.id}:${variant.id}`,
       image: thumbnail ?? placeholderImage(product.name),
       action: { label: 'View cart', onClick: () => navigate('/cart') },
     });
@@ -127,7 +132,11 @@ function ProductDetail() {
 
   // The variant's own price overrides the base price; a null override falls back.
   const displayedPrice = selectedVariant?.price ?? product.basePrice;
-  const isOutOfStock = selectedVariant ? selectedVariant.stock <= 0 : false;
+  const isOutOfStock = selectedVariant ? selectedVariant.stock <= 0 : true;
+  // A lone "Default" variant means the product is sold without options, so there
+  // is nothing to pick — only the stock is worth showing.
+  const showVariantPicker =
+    variants.length > 1 || (variants.length === 1 && displayVariantLabel(variants[0].label));
 
   return (
     <section className={styles.page}>
@@ -156,24 +165,28 @@ function ProductDetail() {
           )}
 
           {/* ── Variant selector ────────────────────────────────────────── */}
-          {variants.length > 0 && (
+          {selectedVariant && (
             <div className={styles.variants}>
-              <h2 className={styles.subheading}>Options</h2>
-              <div className={styles.variantList} role="group" aria-label="Variants">
-                {variants.map((variant) => (
-                  <button
-                    key={variant.id}
-                    type="button"
-                    className={
-                      variant.id === selectedVariantId ? styles.variantActive : styles.variant
-                    }
-                    onClick={() => setSelectedVariantId(variant.id)}
-                    aria-pressed={variant.id === selectedVariantId}
-                  >
-                    {variant.label}
-                  </button>
-                ))}
-              </div>
+              {showVariantPicker && (
+                <>
+                  <h2 className={styles.subheading}>Options</h2>
+                  <div className={styles.variantList} role="group" aria-label="Variants">
+                    {variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        className={
+                          variant.id === selectedVariantId ? styles.variantActive : styles.variant
+                        }
+                        onClick={() => setSelectedVariantId(variant.id)}
+                        aria-pressed={variant.id === selectedVariantId}
+                      >
+                        {variant.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               <p className={styles.stock}>
                 {isOutOfStock ? (
