@@ -84,18 +84,27 @@ export async function getProductById(id) {
   return withStockFlags(product);
 }
 
-// Every product is born with a "Default" variant, so it is sellable from the
-// moment it is created. Adding real variants (sizes, colours) is done afterwards
-// from the product page, and the default one can be renamed or deleted then.
+// Every product is born with exactly one variant, so it is never left in the
+// unsellable state of having nowhere to keep stock. `initialVariant` is what the
+// admin filled in on the create form; without it we fall back to an empty
+// "Default" one, and the product stays out of stock until someone sets it.
+//
+// Further variants (sizes, colours) are added afterwards from the product page,
+// where this first one can also be renamed or deleted.
 export async function createProduct(data) {
-  const { images, ...productData } = data;
+  const { images, initialVariant, ...productData } = data;
+
+  const firstVariant = {
+    label: initialVariant?.label ?? DEFAULT_VARIANT_LABEL,
+    stock: initialVariant?.stock ?? 0,
+  };
 
   const product = await prisma.$transaction(async (tx) => {
     const created = await tx.product.create({
       data: {
         ...productData,
         ...(images?.length ? { images: { create: images } } : {}),
-        variants: { create: [{ label: DEFAULT_VARIANT_LABEL }] },
+        variants: { create: [firstVariant] },
       },
       include: productInclude,
     });

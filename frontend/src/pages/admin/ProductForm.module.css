@@ -23,6 +23,13 @@
   font-weight: var(--font-weight-normal);
 }
 
+/* Explains a group of fields, under its label. */
+.hint {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 /* Label for a group of controls (the image editor) rather than a single input. */
 .fieldLabel {
   display: block;

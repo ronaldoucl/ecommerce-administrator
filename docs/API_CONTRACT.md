@@ -263,7 +263,14 @@ gallery untouched.
 ### POST /api/products
 - **Access:** Protected/JWT
 - **Description:** Create a new product. Images can be attached inline (see [Product images](#product-images-images)).
-- **Note:** Stock lives on variants and checkout is variant-based, so every product is created with one `"Default"` variant (stock `0`). Add real variants afterwards; the default one can then be renamed or deleted. A product can never be left with zero variants.
+- **Note:** Stock lives on variants and checkout is variant-based, so every product is created with exactly one variant. Send `initialVariant` to set it up (that is what the admin form does); omit it and the product gets a `"Default"` variant with stock `0`, which leaves it out of stock until someone sets it. Add further variants afterwards; the first one can then be renamed or deleted. A product can never be left with zero variants.
+
+**`initialVariant`** (optional object, create only)
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `stock` | integer | yes | `0` or more. |
+| `label` | string | no | Max 100 chars. Omit for a product sold without options — it becomes `"Default"` and the storefront shows no option picker. |
 
 **Request body**
 ```json
@@ -276,7 +283,8 @@ gallery untouched.
   "isFeatured": false,
   "images": [
     { "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
-  ]
+  ],
+  "initialVariant": { "label": "M / Black", "stock": 12 }
 }
 ```
 
@@ -295,7 +303,7 @@ gallery untouched.
     { "id": 1, "url": "https://cdn.store.com/aurora-1.jpg", "alt": "Front view" }
   ],
   "variants": [
-    { "id": 31, "label": "Default", "price": null, "stock": 0, "productId": 10 }
+    { "id": 31, "label": "M / Black", "price": null, "stock": 12, "productId": 10 }
   ]
 }
 ```

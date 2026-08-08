@@ -96,6 +96,37 @@ function parseImages(value) {
   });
 }
 
+// The variant a product starts with. Stock lives on variants, so this is what
+// makes a brand new product sellable — without it the product is created with an
+// empty "Default" variant and cannot be bought until stock is set.
+//
+// Only on create: afterwards variants are managed through /api/variants.
+const VARIANT_LABEL_MAX = 100;
+
+function parseInitialVariant(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw badRequest('initialVariant must be an object');
+  }
+
+  if (typeof value.stock !== 'number' || !Number.isInteger(value.stock) || value.stock < 0) {
+    throw badRequest('initialVariant.stock must be a non-negative integer');
+  }
+
+  const variant = { stock: value.stock };
+
+  // No label means "this product is sold without options" — the service falls
+  // back to the default label.
+  if (value.label !== undefined && value.label !== null && value.label.trim?.() !== '') {
+    const label = parseRequiredString(value.label, 'initialVariant.label');
+    if (label.length > VARIANT_LABEL_MAX) {
+      throw badRequest(`initialVariant.label must be at most ${VARIANT_LABEL_MAX} characters`);
+    }
+    variant.label = label;
+  }
+
+  return variant;
+}
+
 // Create: name, description and basePrice are required.
 export function validateCreateProduct(body) {
   if (!body || typeof body !== 'object') {
@@ -112,6 +143,9 @@ export function validateCreateProduct(body) {
   if (body.isActive !== undefined) data.isActive = parseBoolean(body.isActive, 'isActive');
   if (body.isFeatured !== undefined) data.isFeatured = parseBoolean(body.isFeatured, 'isFeatured');
   if (body.images !== undefined) data.images = parseImages(body.images);
+  if (body.initialVariant !== undefined) {
+    data.initialVariant = parseInitialVariant(body.initialVariant);
+  }
 
   return data;
 }

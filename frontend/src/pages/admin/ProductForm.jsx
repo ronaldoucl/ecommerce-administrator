@@ -22,7 +22,14 @@ const EMPTY_FORM = {
   basePrice: '',
   isActive: true,
   isFeatured: false,
+  // Create mode only: the first variant. Stock lives on variants, so a product
+  // is not sellable until it has one with stock. Leaving the label empty means
+  // "sold without options" and the backend labels it for us.
+  initialStock: '',
+  initialVariantLabel: '',
 };
+
+const INTEGER_PATTERN = /^\d+$/;
 
 // Handles both /admin/products/new and /admin/products/:id/edit — if there is an
 // id in the URL we are editing, otherwise we are creating.
@@ -60,6 +67,7 @@ function ProductForm() {
     try {
       const product = await productService.getById(id);
       setForm({
+        ...EMPTY_FORM,
         name: product.name ?? '',
         description: product.description ?? '',
         benefits: product.benefits ?? '',
@@ -106,6 +114,16 @@ function ProductForm() {
       errors.images = 'Every image row must hold a full http(s) URL, or be removed.';
     }
 
+    // Only on create: the product needs its first variant to be sellable.
+    if (!isEdit) {
+      const stock = form.initialStock.trim();
+      if (!stock) {
+        errors.initialStock = 'Stock is required.';
+      } else if (!INTEGER_PATTERN.test(stock)) {
+        errors.initialStock = 'Stock must be a whole number, 0 or more.';
+      }
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -129,6 +147,16 @@ function ProductForm() {
       // the first one becomes the main image.
       images: toImagePayload(images),
     };
+
+    if (!isEdit) {
+      const label = form.initialVariantLabel.trim();
+      payload.initialVariant = {
+        stock: Number(form.initialStock.trim()),
+        // No label: the backend uses its default one and the storefront shows no
+        // option picker.
+        ...(label === '' ? {} : { label }),
+      };
+    }
 
     setIsSubmitting(true);
 
@@ -247,6 +275,51 @@ function ProductForm() {
               <span className={styles.fieldError}>{fieldErrors.basePrice}</span>
             )}
           </label>
+
+          {/*
+            Create mode only. Stock is kept on variants, so a new product needs
+            one straight away — otherwise it goes live out of stock. In edit mode
+            <VariantManager> below takes over.
+          */}
+          {!isEdit && (
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>Inventory</span>
+              <p className={styles.hint}>
+                Stock is tracked per variant. Leave the option name empty if this product is
+                sold without options — you can add sizes or colours after creating it.
+              </p>
+
+              <label className={styles.field} htmlFor="initialStock">
+                Stock
+                <input
+                  id="initialStock"
+                  className={styles.input}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="10"
+                  value={form.initialStock}
+                  onChange={(event) => setField('initialStock', event.target.value)}
+                  disabled={isSubmitting}
+                />
+                {fieldErrors.initialStock && (
+                  <span className={styles.fieldError}>{fieldErrors.initialStock}</span>
+                )}
+              </label>
+
+              <label className={styles.field} htmlFor="initialVariantLabel">
+                Option name <span className={styles.optional}>(optional)</span>
+                <input
+                  id="initialVariantLabel"
+                  className={styles.input}
+                  type="text"
+                  placeholder="e.g. M / Black"
+                  value={form.initialVariantLabel}
+                  onChange={(event) => setField('initialVariantLabel', event.target.value)}
+                  disabled={isSubmitting}
+                />
+              </label>
+            </div>
+          )}
 
           <div className={styles.field}>
             <span className={styles.fieldLabel}>Images</span>
